@@ -1,0 +1,18 @@
+{
+  "name": "crewline",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "bun test --recursive",
+    "typecheck": "tsc --build",
+    "dev:server": "bun run --watch start-server.ts",
+    "dev:worker": "bun run --watch start-worker.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.11",
+    "typescript": "^6.0.2"
+  }
+}

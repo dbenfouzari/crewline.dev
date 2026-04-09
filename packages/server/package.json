@@ -1,0 +1,17 @@
+{
+  "name": "@crewline/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/index.ts"
+  },
+  "dependencies": {
+    "@crewline/shared": "workspace:*",
+    "@crewline/config": "workspace:*",
+    "hono": "^4"
+  }
+}
