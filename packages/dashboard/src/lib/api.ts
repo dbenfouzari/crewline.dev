@@ -15,6 +15,7 @@ const JobSummarySchema = z.object({
   status: z.enum(["pending", "running", "completed", "failed"]),
   repository: z.string(),
   targetNumber: z.number(),
+  issueNumber: z.number().nullable(),
   createdAt: z.string(),
   startedAt: z.string().nullable(),
   completedAt: z.string().nullable(),

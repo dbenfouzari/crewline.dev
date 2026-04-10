@@ -5,7 +5,7 @@
  */
 
 import type { CrewlineConfig, NewJob } from "@crewline/shared";
-import { AGENT_PRIORITY, DEFAULT_PRIORITY, buildPipelineLabels } from "@crewline/shared";
+import { AGENT_PRIORITY, DEFAULT_PRIORITY, buildPipelineLabels, parseLinkedIssueNumbers } from "@crewline/shared";
 import type { GitHubSearchClient } from "./github-search-client.js";
 
 /**
@@ -54,6 +54,7 @@ export async function recoverPendingWork(
     payload: string;
     repository: string;
     targetNumber: number;
+    issueNumber: number | null;
     priority: number;
   }>();
 
@@ -88,6 +89,7 @@ export async function recoverPendingWork(
               payload: syntheticPayload,
               repository: repo,
               targetNumber: result.issue.number,
+              issueNumber: null,
               priority,
             });
           }
@@ -113,12 +115,16 @@ export async function recoverPendingWork(
               sender: result.pullRequest.user,
             });
 
+            const linkedIssues = parseLinkedIssueNumbers(result.pullRequest.body ?? "");
+            const issueNumber = linkedIssues[0] ?? null;
+
             candidates.set(candidateKey, {
               agentKey: pipelineLabel.agentKey,
               label: pipelineLabel.label,
               payload: syntheticPayload,
               repository: repo,
               targetNumber: result.pullRequest.number,
+              issueNumber,
               priority,
             });
           }
@@ -147,6 +153,7 @@ export async function recoverPendingWork(
       payload: candidate.payload,
       repository: candidate.repository,
       targetNumber: candidate.targetNumber,
+      issueNumber: candidate.issueNumber,
     });
 
     console.log(

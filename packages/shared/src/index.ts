@@ -13,6 +13,7 @@ export type {
   JobLifecycleEvent,
 } from "./types/dashboard.js";
 export { toJobSummary, aggregatePipelineState } from "./types/dashboard.js";
+export { parseLinkedIssueNumbers } from "./parse-linked-issues.js";
 export {
   GitHubUserSchema,
   GitHubRepositorySchema,

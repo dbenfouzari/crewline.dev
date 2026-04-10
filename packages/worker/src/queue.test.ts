@@ -53,6 +53,7 @@ describe("JobQueue (BullMQ)", () => {
       payload: '{"action":"labeled"}',
       repository: "user/repo",
       targetNumber: 1,
+      issueNumber: null,
     });
 
     expect(id).toBeDefined();
@@ -72,12 +73,14 @@ describe("JobQueue (BullMQ)", () => {
       payload: '{"action":"labeled"}',
       repository: "user/repo",
       targetNumber: 1,
+      issueNumber: null,
     });
     await queue.enqueue({
       agentName: "architect",
       payload: '{"action":"labeled"}',
       repository: "user/repo",
       targetNumber: 2,
+      issueNumber: null,
     });
 
     const keys = await queue.getActiveJobKeys();
@@ -108,6 +111,7 @@ describe("JobQueue (BullMQ)", () => {
       payload: '{"action":"labeled"}',
       repository: "user/repo",
       targetNumber: 42,
+      issueNumber: null,
     });
 
     // Wait for worker to pick up the job

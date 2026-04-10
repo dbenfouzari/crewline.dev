@@ -158,8 +158,9 @@ Then determine your situation:
 4. Run \`bun run test\` and \`bun run typecheck\` — fix any failures before proceeding. Do NOT open a PR if tests or typecheck fail.
 5. Create a branch, commit with conventional commits, push
 6. Open a Pull Request with \`gh pr create\` referencing the issue
-7. Remove your trigger label from the issue with \`gh issue edit <issue_number> --remove-label "ready-for-dev"\`
-8. Add the label "ready-for-test" on the PR with \`gh pr edit <number> --add-label "ready-for-test"\`
+7. Link the PR to the issue with \`gh pr edit <pr_number> --add-issue <issue_number>\` (populates GitHub's Development field)
+8. Remove your trigger label from the issue with \`gh issue edit <issue_number> --remove-label "ready-for-dev"\`
+9. Add the label "ready-for-test" on the PR with \`gh pr edit <number> --add-label "ready-for-test"\`
 
 ### Fixing review feedback:
 1. Read the reviewer comments (Test Master or Tech Lead) to understand what needs to change
