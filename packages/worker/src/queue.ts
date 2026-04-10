@@ -6,6 +6,7 @@
 import { Queue, Worker, type Job as BullJob } from "bullmq";
 import type { ConnectionOptions } from "bullmq";
 import type { NewJob } from "@crewline/shared";
+import { AGENT_PRIORITY, DEFAULT_PRIORITY } from "@crewline/shared";
 
 export const QUEUE_NAME = "crewline-jobs";
 
@@ -17,22 +18,6 @@ export interface QueueJobData {
 }
 
 export type JobProcessor = (data: QueueJobData) => Promise<{ exitCode: number; result: string }>;
-
-/**
- * Pipeline stage priority: lower number = processed first.
- * Agents later in the pipeline get higher priority so in-progress
- * issues finish before new ones start.
- */
-const AGENT_PRIORITY: Record<string, number> = {
-  techLead: 1,
-  testMaster: 2,
-  dev: 3,
-  domainExpert: 4,
-  architect: 5,
-  requirementsGatherer: 6,
-};
-
-const DEFAULT_PRIORITY = 10;
 
 export function createJobQueue(connection: ConnectionOptions) {
   const queue = new Queue<QueueJobData>(QUEUE_NAME, { connection });

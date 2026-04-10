@@ -37,12 +37,13 @@ export function buildPipelineLabels(
     if (!agent.trigger.label) continue;
 
     const [eventPrefix] = agent.trigger.event.split(".");
-    const entityType = eventPrefix === "pull_request" ? "pull_request" : "issue";
+    const entityType: "issue" | "pull_request" =
+      eventPrefix === "pull_request" ? "pull_request" : "issue";
 
     labels.push({
       label: agent.trigger.label,
       agentKey,
-      entityType: entityType as "issue" | "pull_request",
+      entityType,
     });
   }
 
