@@ -127,4 +127,74 @@ describe("JobQueue (BullMQ)", () => {
     await worker.close();
     await queue.close();
   });
+
+  it("targetTitle survives the enqueue → worker round-trip", async () => {
+    if (!redisAvailable) {
+      console.log("⏭ Skipped: Redis not available");
+      return;
+    }
+
+    const connection = { host: "localhost", port: 6379 };
+    const queue = createJobQueue(connection);
+
+    let processedData: unknown = null;
+    const worker = createJobWorker(connection, async (data) => {
+      processedData = data;
+      return { exitCode: 0, result: "done" };
+    });
+
+    await queue.enqueue({
+      agentName: "dev",
+      payload: '{"action":"labeled"}',
+      repository: "user/repo",
+      targetNumber: 7,
+      targetTitle: "Add CI pipeline with GitHub Actions",
+    });
+
+    await new Promise<void>((resolve) => {
+      worker.on("completed", () => resolve());
+      setTimeout(() => resolve(), 3000);
+    });
+
+    expect(processedData).not.toBeNull();
+    expect((processedData as { targetTitle: string }).targetTitle).toBe("Add CI pipeline with GitHub Actions");
+
+    await worker.close();
+    await queue.close();
+  });
+
+  it("null targetTitle survives the enqueue → worker round-trip", async () => {
+    if (!redisAvailable) {
+      console.log("⏭ Skipped: Redis not available");
+      return;
+    }
+
+    const connection = { host: "localhost", port: 6379 };
+    const queue = createJobQueue(connection);
+
+    let processedData: unknown = null;
+    const worker = createJobWorker(connection, async (data) => {
+      processedData = data;
+      return { exitCode: 0, result: "done" };
+    });
+
+    await queue.enqueue({
+      agentName: "dev",
+      payload: '{"action":"labeled"}',
+      repository: "user/repo",
+      targetNumber: 7,
+      targetTitle: null,
+    });
+
+    await new Promise<void>((resolve) => {
+      worker.on("completed", () => resolve());
+      setTimeout(() => resolve(), 3000);
+    });
+
+    expect(processedData).not.toBeNull();
+    expect((processedData as { targetTitle: string | null }).targetTitle).toBeNull();
+
+    await worker.close();
+    await queue.close();
+  });
 });

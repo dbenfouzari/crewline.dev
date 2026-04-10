@@ -7,6 +7,7 @@
 import type { CrewlineConfig, NewJob } from "@crewline/shared";
 import { AGENT_PRIORITY, DEFAULT_PRIORITY, buildPipelineLabels } from "@crewline/shared";
 import type { GitHubSearchClient } from "./github-search-client.js";
+import { extractTargetTitle } from "./extract-target-title.js";
 
 /**
  * Defense-in-depth guard: validates that a target number is a finite positive integer
@@ -143,9 +144,7 @@ export async function recoverPendingWork(
     }
 
     const parsed = JSON.parse(candidate.payload) as Record<string, unknown>;
-    const issue = parsed["issue"] as { title?: string } | undefined;
-    const pr = parsed["pull_request"] as { title?: string } | undefined;
-    const targetTitle = issue?.title ?? pr?.title ?? null;
+    const targetTitle = extractTargetTitle(parsed);
 
     const jobId = await queue.enqueue({
       agentName: candidate.agentKey,
