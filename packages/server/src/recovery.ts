@@ -5,23 +5,8 @@
  */
 
 import type { CrewlineConfig, NewJob } from "@crewline/shared";
-import { buildPipelineLabels } from "@crewline/shared";
+import { AGENT_PRIORITY, DEFAULT_PRIORITY, buildPipelineLabels } from "@crewline/shared";
 import type { GitHubSearchClient } from "./github-search-client.js";
-
-/**
- * Priority map for determining which pipeline stage is furthest along.
- * Lower number = further along. Must match AGENT_PRIORITY in queue.ts.
- */
-const AGENT_PRIORITY: Record<string, number> = {
-  techLead: 1,
-  testMaster: 2,
-  dev: 3,
-  domainExpert: 4,
-  architect: 5,
-  requirementsGatherer: 6,
-};
-
-const DEFAULT_PRIORITY = 10;
 
 interface RecoverPendingWorkOptions {
   config: CrewlineConfig;
