@@ -7,6 +7,8 @@ import { createApp } from "./app.js";
 import { matchAgents } from "./router.js";
 import { createJobQueue } from "@crewline/worker";
 import type { CrewlineConfig, GitHubEventName } from "@crewline/shared";
+import { recoverPendingWork } from "./recovery.js";
+import { createGitHubSearchClient } from "./github-search-client.js";
 
 export interface StartServerOptions {
   config: CrewlineConfig;
@@ -59,6 +61,12 @@ export async function startServer(options: StartServerOptions) {
   console.log(`[server] Watching repos: ${config.github.repos.join(", ")}`);
   console.log(`[server] Agents: ${Object.keys(config.agents).join(", ")}`);
 
+  // Fire-and-forget recovery — must not block webhook processing
+  const githubClient = createGitHubSearchClient();
+  recoverPendingWork({ config, queue, githubClient }).catch((error: unknown) => {
+    console.error("[server] Recovery failed (non-fatal):", error);
+  });
+
   return { server, queue };
 }
 
@@ -76,3 +84,6 @@ export { createApp } from "./app.js";
 export { matchAgents } from "./router.js";
 export type { AppOptions, WebhookEvent } from "./app.js";
 export { verifyGitHubSignature } from "./middleware/github-signature.js";
+export { recoverPendingWork } from "./recovery.js";
+export { createGitHubSearchClient } from "./github-search-client.js";
+export type { GitHubSearchClient, IssueSearchResult, PullRequestSearchResult } from "./github-search-client.js";
