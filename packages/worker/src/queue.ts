@@ -18,17 +18,34 @@ export interface QueueJobData {
 
 export type JobProcessor = (data: QueueJobData) => Promise<{ exitCode: number; result: string }>;
 
+/**
+ * Pipeline stage priority: lower number = processed first.
+ * Agents later in the pipeline get higher priority so in-progress
+ * issues finish before new ones start.
+ */
+const AGENT_PRIORITY: Record<string, number> = {
+  techLead: 1,
+  testMaster: 2,
+  dev: 3,
+  domainExpert: 4,
+  architect: 5,
+  requirementsGatherer: 6,
+};
+
+const DEFAULT_PRIORITY = 10;
+
 export function createJobQueue(connection: ConnectionOptions) {
   const queue = new Queue<QueueJobData>(QUEUE_NAME, { connection });
 
   return {
     async enqueue(newJob: NewJob): Promise<string> {
+      const priority = AGENT_PRIORITY[newJob.agentName] ?? DEFAULT_PRIORITY;
       const job = await queue.add(newJob.agentName, {
         agentName: newJob.agentName,
         payload: newJob.payload,
         repository: newJob.repository,
         targetNumber: newJob.targetNumber,
-      });
+      }, { priority });
       return job.id!;
     },
 
@@ -56,6 +73,8 @@ export function createJobWorker(
     {
       connection,
       concurrency: options?.concurrency ?? 1,
+      lockDuration: 600_000, // 10 minutes — agents can run for a while
+      lockRenewTime: 300_000, // Renew lock every 5 minutes
     },
   );
 
