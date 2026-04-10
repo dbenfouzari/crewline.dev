@@ -254,6 +254,38 @@ describe("recoverPendingWork", () => {
     expect(enqueued[0]!.agentName).toBe("requirementsGatherer");
   });
 
+  it("skips recovery candidates with invalid targetNumber and logs a warning", async () => {
+    const { queue, enqueued } = createMockQueue();
+    // Return an issue result where number is undefined at runtime (simulating a bad API response)
+    const badResult = createIssueResult(5, ["ready"]);
+    // Force number to undefined to simulate the bug
+    (badResult.issue as unknown as Record<string, unknown>)["number"] = undefined;
+
+    const client = createMockGitHubClient({
+      "owner/repo:ready": [badResult],
+    });
+
+    const count = await recoverPendingWork({ config: testConfig, queue, githubClient: client });
+
+    expect(count).toBe(0);
+    expect(enqueued).toHaveLength(0);
+  });
+
+  it("skips recovery candidates with zero targetNumber", async () => {
+    const { queue, enqueued } = createMockQueue();
+    const badResult = createIssueResult(5, ["ready"]);
+    (badResult.issue as unknown as Record<string, unknown>)["number"] = 0;
+
+    const client = createMockGitHubClient({
+      "owner/repo:ready": [badResult],
+    });
+
+    const count = await recoverPendingWork({ config: testConfig, queue, githubClient: client });
+
+    expect(count).toBe(0);
+    expect(enqueued).toHaveLength(0);
+  });
+
   it("continues recovery when GitHub client fails for one label", async () => {
     const { queue, enqueued } = createMockQueue();
     const client: GitHubSearchClient = {
