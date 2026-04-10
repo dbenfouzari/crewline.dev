@@ -21,6 +21,7 @@ describe("JobHistory", () => {
       payload: '{"action":"labeled"}',
       repository: "user/repo",
       targetNumber: 1,
+      issueNumber: null,
       createdAt: new Date().toISOString(),
       startedAt: new Date().toISOString(),
       completedAt: new Date().toISOString(),
@@ -103,5 +104,60 @@ describe("JobHistory", () => {
     history.record(makeJob({ targetNumber: 1 }));
 
     expect(history.listByTargetNumber(999)).toHaveLength(0);
+  });
+
+  it("records and retrieves issueNumber", () => {
+    const job = makeJob({ targetNumber: 50, issueNumber: 42 });
+    history.record(job);
+
+    const retrieved = history.getById(job.id);
+    expect(retrieved!.issueNumber).toBe(42);
+  });
+
+  it("stores null issueNumber for issue-triggered jobs", () => {
+    const job = makeJob({ targetNumber: 42, issueNumber: null });
+    history.record(job);
+
+    const retrieved = history.getById(job.id);
+    expect(retrieved!.issueNumber).toBeNull();
+  });
+
+  describe("listByIssueNumber", () => {
+    it("returns issue-triggered jobs where targetNumber matches", () => {
+      history.record(makeJob({ agentName: "requirementsGatherer", targetNumber: 42, issueNumber: null }));
+      history.record(makeJob({ agentName: "architect", targetNumber: 42, issueNumber: null }));
+      history.record(makeJob({ targetNumber: 99, issueNumber: null }));
+
+      const jobs = history.listByIssueNumber(42);
+      expect(jobs).toHaveLength(2);
+      expect(jobs.every((job) => job.targetNumber === 42)).toBe(true);
+    });
+
+    it("returns PR-triggered jobs where issueNumber matches", () => {
+      history.record(makeJob({ agentName: "testMaster", targetNumber: 50, issueNumber: 42 }));
+      history.record(makeJob({ agentName: "techLead", targetNumber: 50, issueNumber: 42 }));
+
+      const jobs = history.listByIssueNumber(42);
+      expect(jobs).toHaveLength(2);
+      expect(jobs.every((job) => job.issueNumber === 42)).toBe(true);
+    });
+
+    it("returns both issue-triggered and PR-triggered jobs together", () => {
+      history.record(makeJob({ agentName: "requirementsGatherer", targetNumber: 42, issueNumber: null }));
+      history.record(makeJob({ agentName: "dev", targetNumber: 42, issueNumber: null }));
+      history.record(makeJob({ agentName: "testMaster", targetNumber: 50, issueNumber: 42 }));
+      history.record(makeJob({ agentName: "techLead", targetNumber: 50, issueNumber: 42 }));
+
+      const jobs = history.listByIssueNumber(42);
+      expect(jobs).toHaveLength(4);
+      const agentNames = jobs.map((job) => job.agentName).sort();
+      expect(agentNames).toEqual(["dev", "requirementsGatherer", "techLead", "testMaster"]);
+    });
+
+    it("returns empty array when no jobs match", () => {
+      history.record(makeJob({ targetNumber: 1, issueNumber: null }));
+
+      expect(history.listByIssueNumber(999)).toHaveLength(0);
+    });
   });
 });

@@ -7,6 +7,7 @@ import { createApp } from "./app.js";
 import { matchAgents } from "./router.js";
 import { createJobQueue, JobHistory, QUEUE_NAME } from "@crewline/worker";
 import type { CrewlineConfig, GitHubEventName, JobSummary, JobStatus } from "@crewline/shared";
+import { parseLinkedIssueNumbers } from "@crewline/shared";
 import { recoverPendingWork } from "./recovery.js";
 import { createGitHubSearchClient } from "./github-search-client.js";
 import { createDashboardRoutes } from "./routes/dashboard.js";
@@ -100,11 +101,13 @@ export async function startServer(options: StartServerOptions) {
 
       for (const [agentKey, _agent] of matches) {
         const targetNumber = extractTargetNumber(payload);
+        const issueNumber = extractIssueNumberFromPR(payload);
         const jobId = await queue.enqueue({
           agentName: agentKey,
           payload: JSON.stringify(payload),
           repository: repo ?? "unknown",
           targetNumber,
+          issueNumber,
         });
         console.log(`[server] Enqueued job ${jobId} for agent "${agentKey}" on ${repo}#${String(targetNumber)}`);
       }
@@ -145,6 +148,7 @@ function buildJobSummary(bullJob: BullJob, status: JobStatus): JobSummary {
     status,
     repository: bullJob.data.repository as string,
     targetNumber: bullJob.data.targetNumber as number,
+    issueNumber: (bullJob.data.issueNumber as number | null) ?? null,
     createdAt: new Date(bullJob.timestamp).toISOString(),
     startedAt: bullJob.processedOn ? new Date(bullJob.processedOn).toISOString() : null,
     completedAt: null,
@@ -161,6 +165,22 @@ function extractTargetNumber(payload: Record<string, unknown>): number {
   if (pr?.number) return pr.number;
 
   return 0;
+}
+
+/**
+ * Extracts the linked issue number from a PR payload by parsing closing keywords
+ * (Closes, Fixes, Resolves) from the PR body. Returns the first linked issue number
+ * or null if the payload is not a PR or has no closing references.
+ *
+ * @param payload - The GitHub webhook payload
+ * @returns The first linked issue number, or null
+ */
+function extractIssueNumberFromPR(payload: Record<string, unknown>): number | null {
+  const pr = payload["pull_request"] as { body?: string | null } | undefined;
+  if (!pr?.body) return null;
+
+  const linkedIssues = parseLinkedIssueNumbers(pr.body);
+  return linkedIssues[0] ?? null;
 }
 
 export { createApp } from "./app.js";

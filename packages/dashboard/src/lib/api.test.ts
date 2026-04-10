@@ -10,6 +10,7 @@ function createMockJobSummary(
     status: "pending",
     repository: "owner/repo",
     targetNumber: 7,
+    issueNumber: null,
     createdAt: "2026-04-10T12:00:00Z",
     startedAt: null,
     completedAt: null,
