@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { GitHubEventName } from "@crewline/shared";
 import { verifyGitHubSignature } from "./middleware/github-signature.js";
 import type { createDashboardRoutes } from "./routes/dashboard.js";
@@ -17,6 +18,8 @@ export interface AppOptions {
 
 export function createApp(options: AppOptions) {
   const app = new Hono();
+
+  app.use("*", cors());
 
   app.get("/health", (c) => {
     return c.json({ status: "ok" });
