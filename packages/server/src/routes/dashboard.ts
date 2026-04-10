@@ -78,6 +78,7 @@ export function createDashboardRoutes(deps: DashboardDependencies) {
         };
 
         subscribers.add(subscriber);
+        console.log(`[sse] Client connected (${String(subscribers.size)} total)`);
 
         /** Send initial comment to trigger EventSource onopen immediately */
         controller.enqueue(encoder.encode(": connected\n\n"));
@@ -95,6 +96,7 @@ export function createDashboardRoutes(deps: DashboardDependencies) {
         c.req.raw.signal.addEventListener("abort", () => {
           subscribers.delete(subscriber);
           clearInterval(keepAlive);
+          console.log(`[sse] Client disconnected (${String(subscribers.size)} remaining)`);
         });
       },
     });
@@ -115,6 +117,7 @@ export function createDashboardRoutes(deps: DashboardDependencies) {
      * @param event - The lifecycle event to broadcast
      */
     publish(event: JobLifecycleEvent): void {
+      console.log(`[sse] Publishing ${event.type} for ${event.job.agentName}#${String(event.job.targetNumber)} to ${String(subscribers.size)} client(s)`);
       for (const subscriber of subscribers) {
         subscriber(event);
       }

@@ -155,7 +155,7 @@ Then determine your situation:
 1. Follow the Architect's implementation plan from the comments
 2. Respect the Domain Expert's naming conventions from the comments
 3. Write tests FIRST (TDD), then implement
-4. Ensure all existing tests still pass
+4. Run \`bun run test\` and \`bun run typecheck\` — fix any failures before proceeding. Do NOT open a PR if tests or typecheck fail.
 5. Create a branch, commit with conventional commits, push
 6. Open a Pull Request with \`gh pr create\` referencing the issue
 7. Remove your trigger label from the issue with \`gh issue edit <issue_number> --remove-label "ready-for-dev"\`
@@ -165,8 +165,9 @@ Then determine your situation:
 1. Read the reviewer comments (Test Master or Tech Lead) to understand what needs to change
 2. Check out the existing branch
 3. Fix the issues
-4. Commit with conventional commits (e.g., \`fix: address review feedback\`)
-5. Push to the same branch
+4. Run \`bun run test\` and \`bun run typecheck\` — fix any failures before pushing.
+5. Commit with conventional commits (e.g., \`fix: address review feedback\`)
+6. Push to the same branch
 6. Post a comment summarizing what you fixed
 7. Remove your trigger label from the issue with \`gh issue edit <issue_number> --remove-label "ready-for-dev"\`
 8. Add the label "ready-for-test" on the PR with \`gh pr edit <number> --add-label "ready-for-test"\` to trigger re-review

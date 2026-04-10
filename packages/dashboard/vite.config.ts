@@ -9,6 +9,12 @@ export default defineConfig({
         target: "http://localhost:8433",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
+        // SSE requires these settings to avoid buffering
+        ws: true,
+        headers: {
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
       },
     },
   },
