@@ -12,6 +12,9 @@
   "dependencies": {
     "@crewline/shared": "workspace:*",
     "@crewline/config": "workspace:*",
-    "hono": "^4"
+    "@crewline/worker": "workspace:*",
+    "bullmq": "^5.73.3",
+    "hono": "^4",
+    "zod": "^3.23"
   }
 }

@@ -76,4 +76,32 @@ describe("JobHistory", () => {
   it("returns null for unknown job ID", () => {
     expect(history.getById("nonexistent")).toBeNull();
   });
+
+  it("lists all jobs ordered by createdAt descending", () => {
+    const older = makeJob({ createdAt: "2025-01-01T00:00:00Z", status: "completed" });
+    const newer = makeJob({ createdAt: "2025-01-02T00:00:00Z", status: "failed" });
+    history.record(older);
+    history.record(newer);
+
+    const all = history.listAll();
+    expect(all).toHaveLength(2);
+    expect(all[0]!.id).toBe(newer.id);
+    expect(all[1]!.id).toBe(older.id);
+  });
+
+  it("lists jobs filtered by target number", () => {
+    history.record(makeJob({ targetNumber: 42 }));
+    history.record(makeJob({ targetNumber: 42 }));
+    history.record(makeJob({ targetNumber: 99 }));
+
+    const jobs = history.listByTargetNumber(42);
+    expect(jobs).toHaveLength(2);
+    expect(jobs.every((j) => j.targetNumber === 42)).toBe(true);
+  });
+
+  it("returns empty array when no jobs match target number", () => {
+    history.record(makeJob({ targetNumber: 1 }));
+
+    expect(history.listByTargetNumber(999)).toHaveLength(0);
+  });
 });

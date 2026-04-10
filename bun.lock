@@ -22,7 +22,10 @@
       "dependencies": {
         "@crewline/config": "workspace:*",
         "@crewline/shared": "workspace:*",
+        "@crewline/worker": "workspace:*",
+        "bullmq": "^5.73.3",
         "hono": "^4",
+        "zod": "^3.23",
       },
     },
     "packages/shared": {
