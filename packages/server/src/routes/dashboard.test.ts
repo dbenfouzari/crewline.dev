@@ -15,6 +15,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     repository: "user/repo",
     targetNumber: 1,
     issueNumber: null,
+    targetTitle: null,
     createdAt: new Date().toISOString(),
     startedAt: new Date().toISOString(),
     completedAt: new Date().toISOString(),
@@ -119,6 +120,7 @@ describe("Dashboard Routes", () => {
         makeJob({
           agentName: "requirementsGatherer",
           targetNumber: 42,
+          targetTitle: "Add CI pipeline",
           status: "completed",
         }),
       );
@@ -126,6 +128,7 @@ describe("Dashboard Routes", () => {
         makeJob({
           agentName: "architect",
           targetNumber: 42,
+          targetTitle: "Add CI pipeline",
           status: "running",
           completedAt: null,
         }),
@@ -136,9 +139,11 @@ describe("Dashboard Routes", () => {
 
       const body = (await response.json()) as {
         issueNumber: number;
+        title: string | null;
         stages: { agentName: string; status: string }[];
       };
       expect(body.issueNumber).toBe(42);
+      expect(body.title).toBe("Add CI pipeline");
       expect(body.stages).toHaveLength(2);
 
       const requirementsStage = body.stages.find(

@@ -30,7 +30,12 @@
 
 <article class="issue-card">
   <header>
-    <h2>#{issueNumber}</h2>
+    <h2>
+      <span class="issue-number">#{issueNumber}</span>
+      {#if pipeline.title}
+        <span class="issue-title" title={pipeline.title}> — {pipeline.title}</span>
+      {/if}
+    </h2>
     {#if hasPrStages}
       <span class="pr-badge">PR linked</span>
     {/if}
@@ -66,6 +71,19 @@
     font-size: 1rem;
     font-weight: 600;
     font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .issue-number {
+    flex-shrink: 0;
+  }
+
+  .issue-title {
+    font-weight: 400;
+    color: var(--color-text-muted);
   }
 
   .pr-badge {

@@ -23,6 +23,7 @@ describe("JobHistory", () => {
       repository: "user/repo",
       targetNumber: 1,
       issueNumber: null,
+      targetTitle: null,
       createdAt: new Date().toISOString(),
       startedAt: new Date().toISOString(),
       completedAt: new Date().toISOString(),
@@ -121,6 +122,22 @@ describe("JobHistory", () => {
 
     const retrieved = history.getById(job.id);
     expect(retrieved!.issueNumber).toBeNull();
+  });
+
+  it("records and retrieves targetTitle", () => {
+    const job = makeJob({ targetTitle: "Add CI pipeline with GitHub Actions" });
+    history.record(job);
+
+    const retrieved = history.getById(job.id);
+    expect(retrieved!.targetTitle).toBe("Add CI pipeline with GitHub Actions");
+  });
+
+  it("stores null targetTitle for jobs without a title", () => {
+    const job = makeJob({ targetTitle: null });
+    history.record(job);
+
+    const retrieved = history.getById(job.id);
+    expect(retrieved!.targetTitle).toBeNull();
   });
 
   describe("listByIssueNumber", () => {

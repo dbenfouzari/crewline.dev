@@ -11,6 +11,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     repository: "user/repo",
     targetNumber: 1,
     issueNumber: null,
+    targetTitle: null,
     createdAt: new Date().toISOString(),
     startedAt: new Date().toISOString(),
     completedAt: new Date().toISOString(),
@@ -31,6 +32,7 @@ describe("toJobSummary", () => {
     expect(summary.status).toBe(job.status);
     expect(summary.repository).toBe(job.repository);
     expect(summary.targetNumber).toBe(job.targetNumber);
+    expect(summary.targetTitle).toBe(job.targetTitle);
     expect(summary.createdAt).toBe(job.createdAt);
     expect(summary.startedAt).toBe(job.startedAt);
     expect(summary.completedAt).toBe(job.completedAt);
@@ -50,10 +52,11 @@ describe("toJobSummary", () => {
 });
 
 describe("aggregatePipelineState", () => {
-  it("returns empty stages for an empty jobs array", () => {
+  it("returns empty stages and null title for an empty jobs array", () => {
     const state = aggregatePipelineState(42, []);
 
     expect(state.issueNumber).toBe(42);
+    expect(state.title).toBeNull();
     expect(state.stages).toHaveLength(0);
   });
 
@@ -149,5 +152,38 @@ describe("aggregatePipelineState", () => {
     const state = aggregatePipelineState(1, [job]);
 
     expect(state.stages[0]).not.toHaveProperty("payload");
+  });
+
+  it("derives pipeline title from the most recent job's targetTitle", () => {
+    const jobs = [
+      makeJob({ agentName: "requirementsGatherer", targetTitle: "Old title", createdAt: "2025-01-01T00:00:00Z" }),
+      makeJob({ agentName: "dev", targetTitle: "Add CI pipeline", createdAt: "2025-01-03T00:00:00Z" }),
+      makeJob({ agentName: "architect", targetTitle: "Updated title", createdAt: "2025-01-02T00:00:00Z" }),
+    ];
+
+    const state = aggregatePipelineState(14, jobs);
+
+    expect(state.title).toBe("Add CI pipeline");
+  });
+
+  it("returns null title when all jobs have null targetTitle", () => {
+    const jobs = [
+      makeJob({ agentName: "dev", targetTitle: null }),
+    ];
+
+    const state = aggregatePipelineState(1, jobs);
+
+    expect(state.title).toBeNull();
+  });
+
+  it("returns null title when most recent job has null targetTitle", () => {
+    const jobs = [
+      makeJob({ agentName: "requirementsGatherer", targetTitle: "Some title", createdAt: "2025-01-01T00:00:00Z" }),
+      makeJob({ agentName: "dev", targetTitle: null, createdAt: "2025-01-02T00:00:00Z" }),
+    ];
+
+    const state = aggregatePipelineState(1, jobs);
+
+    expect(state.title).toBeNull();
   });
 });
