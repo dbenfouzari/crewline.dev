@@ -13,6 +13,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     payload: '{"action":"labeled"}',
     repository: "user/repo",
     targetNumber: 1,
+    issueNumber: null,
     createdAt: new Date().toISOString(),
     startedAt: new Date().toISOString(),
     completedAt: new Date().toISOString(),
@@ -194,6 +195,57 @@ describe("Dashboard Routes", () => {
 
       const body = (await response.json()) as { error: string };
       expect(body.error).toBe("Invalid issue number");
+    });
+
+    it("returns unified pipeline with both issue and PR stages", async () => {
+      // Issue-triggered jobs (targetNumber = issue, issueNumber = null)
+      history.record(
+        makeJob({
+          agentName: "requirementsGatherer",
+          targetNumber: 42,
+          issueNumber: null,
+          status: "completed",
+        }),
+      );
+      history.record(
+        makeJob({
+          agentName: "dev",
+          targetNumber: 42,
+          issueNumber: null,
+          status: "completed",
+        }),
+      );
+      // PR-triggered jobs (targetNumber = PR#, issueNumber = issue#)
+      history.record(
+        makeJob({
+          agentName: "testMaster",
+          targetNumber: 50,
+          issueNumber: 42,
+          status: "completed",
+        }),
+      );
+      history.record(
+        makeJob({
+          agentName: "techLead",
+          targetNumber: 50,
+          issueNumber: 42,
+          status: "running",
+          completedAt: null,
+        }),
+      );
+
+      const response = await app.request("/pipeline/42");
+      expect(response.status).toBe(200);
+
+      const body = (await response.json()) as {
+        issueNumber: number;
+        stages: { agentName: string; status: string }[];
+      };
+      expect(body.issueNumber).toBe(42);
+      expect(body.stages).toHaveLength(4);
+
+      const agentNames = body.stages.map((s) => s.agentName).sort();
+      expect(agentNames).toEqual(["dev", "requirementsGatherer", "techLead", "testMaster"]);
     });
   });
 

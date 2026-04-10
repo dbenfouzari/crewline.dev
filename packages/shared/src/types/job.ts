@@ -17,6 +17,8 @@ export interface Job {
   repository: string;
   /** Issue or PR number */
   targetNumber: number;
+  /** The originating issue number for PR-triggered jobs. Null for issue-triggered jobs. */
+  issueNumber: number | null;
   /** Timestamps */
   createdAt: string;
   startedAt: string | null;
@@ -29,5 +31,5 @@ export interface Job {
 
 export type NewJob = Pick<
   Job,
-  "agentName" | "payload" | "repository" | "targetNumber"
+  "agentName" | "payload" | "repository" | "targetNumber" | "issueNumber"
 >;

@@ -176,6 +176,7 @@ describe("startSSE", () => {
         status: "running",
         repository: "owner/repo",
         targetNumber: 7,
+        issueNumber: null,
         createdAt: "2026-04-10T12:00:00Z",
         startedAt: "2026-04-10T12:01:00Z",
         completedAt: null,

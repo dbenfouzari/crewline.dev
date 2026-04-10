@@ -20,11 +20,16 @@ export const pipelinesByIssue = derived(jobStore, ($jobs) => {
   const grouped = new Map<number, Job[]>();
 
   for (const job of $jobs) {
-    const existing = grouped.get(job.targetNumber);
+    // Pipeline key: issueNumber ?? targetNumber
+    // For issue-stage jobs, issueNumber is null → group by targetNumber (the issue number)
+    // For PR-stage jobs, issueNumber is set → group under the linked issue
+    // For orphan PRs, issueNumber is null → group by targetNumber (the PR number)
+    const pipelineKey = job.issueNumber ?? job.targetNumber;
+    const existing = grouped.get(pipelineKey);
     if (existing) {
       existing.push(job as Job);
     } else {
-      grouped.set(job.targetNumber, [job as Job]);
+      grouped.set(pipelineKey, [job as Job]);
     }
   }
 

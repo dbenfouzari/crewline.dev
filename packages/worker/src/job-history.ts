@@ -14,12 +14,17 @@ const CREATE_TABLE = `
     payload TEXT NOT NULL,
     repository TEXT NOT NULL,
     target_number INTEGER NOT NULL,
+    issue_number INTEGER,
     created_at TEXT NOT NULL,
     started_at TEXT,
     completed_at TEXT,
     result TEXT,
     exit_code INTEGER
   )
+`;
+
+const MIGRATE_ADD_ISSUE_NUMBER = `
+  ALTER TABLE job_history ADD COLUMN issue_number INTEGER
 `;
 
 function rowToJob(row: Record<string, unknown>): Job {
@@ -30,6 +35,7 @@ function rowToJob(row: Record<string, unknown>): Job {
     payload: row["payload"] as string,
     repository: row["repository"] as string,
     targetNumber: row["target_number"] as number,
+    issueNumber: (row["issue_number"] as number) ?? null,
     createdAt: row["created_at"] as string,
     startedAt: (row["started_at"] as string) ?? null,
     completedAt: (row["completed_at"] as string) ?? null,
@@ -45,13 +51,23 @@ export class JobHistory {
     this.db = new Database(path);
     this.db.run("PRAGMA journal_mode = WAL");
     this.db.run(CREATE_TABLE);
+    this.migrate();
+  }
+
+  /** Runs idempotent schema migrations for existing databases. */
+  private migrate(): void {
+    const columns = this.db.query("PRAGMA table_info(job_history)").all() as { name: string }[];
+    const hasIssueNumber = columns.some((column) => column.name === "issue_number");
+    if (!hasIssueNumber) {
+      this.db.run(MIGRATE_ADD_ISSUE_NUMBER);
+    }
   }
 
   record(job: Job): void {
     this.db.run(
       `INSERT OR REPLACE INTO job_history
-       (id, agent_name, status, payload, repository, target_number, created_at, started_at, completed_at, result, exit_code)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, agent_name, status, payload, repository, target_number, issue_number, created_at, started_at, completed_at, result, exit_code)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         job.id,
         job.agentName,
@@ -59,6 +75,7 @@ export class JobHistory {
         job.payload,
         job.repository,
         job.targetNumber,
+        job.issueNumber,
         job.createdAt,
         job.startedAt,
         job.completedAt,
@@ -107,6 +124,22 @@ export class JobHistory {
         "SELECT * FROM job_history WHERE target_number = ? ORDER BY created_at DESC",
       )
       .all(targetNumber) as Record<string, unknown>[];
+    return rows.map(rowToJob);
+  }
+
+  /**
+   * Returns all jobs for a given issue, including PR-triggered jobs linked to it.
+   * Uses OR query: jobs where target_number matches OR issue_number matches.
+   *
+   * @param issueNumber - The issue number to look up
+   * @returns Jobs from both issue-stage and linked PR-stage agents
+   */
+  listByIssueNumber(issueNumber: number): Job[] {
+    const rows = this.db
+      .query(
+        "SELECT * FROM job_history WHERE target_number = ? OR issue_number = ? ORDER BY created_at DESC",
+      )
+      .all(issueNumber, issueNumber) as Record<string, unknown>[];
     return rows.map(rowToJob);
   }
 
