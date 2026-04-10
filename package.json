@@ -9,7 +9,8 @@
     "test": "bun test --recursive",
     "typecheck": "tsc --build",
     "dev:server": "bun run --watch start-server.ts",
-    "dev:worker": "bun run --watch start-worker.ts"
+    "dev:worker": "bun run --watch start-worker.ts",
+    "dev:dashboard": "cd packages/dashboard && bun run dev"
   },
   "devDependencies": {
     "@types/bun": "^1.3.11",
