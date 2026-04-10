@@ -60,7 +60,7 @@ export function createDashboardRoutes(deps: DashboardDependencies) {
       return c.json({ error: "Invalid issue number" }, 400);
     }
 
-    const jobs = deps.jobHistory.listByTargetNumber(issueNumber);
+    const jobs = deps.jobHistory.listByIssueNumber(issueNumber);
     const pipelineState = aggregatePipelineState(issueNumber, jobs);
     return c.json(pipelineState);
   });

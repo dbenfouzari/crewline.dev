@@ -11,6 +11,7 @@ function createMockJob(overrides: Partial<JobSummary> = {}): JobSummary {
     status: "pending",
     repository: "owner/repo",
     targetNumber: 7,
+    issueNumber: null,
     createdAt: "2026-04-10T12:00:00Z",
     startedAt: null,
     completedAt: null,
@@ -114,5 +115,51 @@ describe("pipelinesByIssue", () => {
 
     jobStore.set([]);
     expect(get(pipelinesByIssue).size).toBe(0);
+  });
+
+  it("groups PR-stage jobs under the linked issue using issueNumber", () => {
+    jobStore.set([
+      // Issue-triggered job (issueNumber is null, targetNumber is the issue)
+      createMockJob({
+        id: "job-1",
+        agentName: "requirementsGatherer",
+        targetNumber: 7,
+        issueNumber: null,
+      }),
+      // PR-triggered job (issueNumber points to the issue, targetNumber is the PR)
+      createMockJob({
+        id: "job-2",
+        agentName: "testMaster",
+        targetNumber: 50,
+        issueNumber: 7,
+        createdAt: "2026-04-10T13:00:00Z",
+      }),
+    ]);
+
+    const pipelines = get(pipelinesByIssue);
+    // Both jobs should be grouped under issue 7 — not split into 7 and 50
+    expect(pipelines.size).toBe(1);
+    expect(pipelines.has(7)).toBe(true);
+    expect(pipelines.has(50)).toBe(false);
+
+    const pipeline = pipelines.get(7)!;
+    expect(pipeline.stages).toHaveLength(2);
+    const agentNames = pipeline.stages.map((s) => s.agentName).sort();
+    expect(agentNames).toEqual(["requirementsGatherer", "testMaster"]);
+  });
+
+  it("keeps orphan PR jobs as standalone pipeline when issueNumber is null", () => {
+    jobStore.set([
+      createMockJob({
+        id: "job-1",
+        agentName: "testMaster",
+        targetNumber: 50,
+        issueNumber: null,
+      }),
+    ]);
+
+    const pipelines = get(pipelinesByIssue);
+    expect(pipelines.size).toBe(1);
+    expect(pipelines.has(50)).toBe(true);
   });
 });

@@ -10,6 +10,7 @@ function makeJob(overrides: Partial<Job> = {}): Job {
     payload: '{"action":"labeled"}',
     repository: "user/repo",
     targetNumber: 1,
+    issueNumber: null,
     createdAt: new Date().toISOString(),
     startedAt: new Date().toISOString(),
     completedAt: new Date().toISOString(),

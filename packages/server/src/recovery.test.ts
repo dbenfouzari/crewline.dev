@@ -286,6 +286,48 @@ describe("recoverPendingWork", () => {
     expect(enqueued).toHaveLength(0);
   });
 
+  it("parses issueNumber from PR body during recovery", async () => {
+    const { queue, enqueued } = createMockQueue();
+    const prResult = createPullRequestResult(42);
+    prResult.pullRequest.body = "Fixes #20\n\nSome description";
+
+    const client = createMockGitHubClient({}, {
+      "owner/repo:ready-for-test": [prResult],
+    });
+
+    await recoverPendingWork({ config: testConfig, queue, githubClient: client });
+
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]!.issueNumber).toBe(20);
+  });
+
+  it("sets issueNumber to null when PR body has no closing keywords", async () => {
+    const { queue, enqueued } = createMockQueue();
+    const prResult = createPullRequestResult(42);
+    prResult.pullRequest.body = "Just a regular PR";
+
+    const client = createMockGitHubClient({}, {
+      "owner/repo:ready-for-test": [prResult],
+    });
+
+    await recoverPendingWork({ config: testConfig, queue, githubClient: client });
+
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]!.issueNumber).toBeNull();
+  });
+
+  it("sets issueNumber to null for issue recovery", async () => {
+    const { queue, enqueued } = createMockQueue();
+    const client = createMockGitHubClient({
+      "owner/repo:ready": [createIssueResult(5, ["ready"])],
+    });
+
+    await recoverPendingWork({ config: testConfig, queue, githubClient: client });
+
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]!.issueNumber).toBeNull();
+  });
+
   it("continues recovery when GitHub client fails for one label", async () => {
     const { queue, enqueued } = createMockQueue();
     const client: GitHubSearchClient = {
