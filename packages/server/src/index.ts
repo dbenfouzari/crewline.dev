@@ -15,6 +15,7 @@ import { createDashboardRoutes } from "./routes/dashboard.js";
 import { createConversationSubscriber } from "./conversation-subscriber.js";
 import { QueueEvents } from "bullmq";
 import type { Job as BullJob } from "bullmq";
+import { extractTargetTitle } from "./extract-target-title.js";
 
 export interface StartServerOptions {
   config: CrewlineConfig;
@@ -197,22 +198,7 @@ function extractIssueNumberFromPR(payload: Record<string, unknown>): number | nu
   return linkedIssues[0] ?? null;
 }
 
-/**
- * Extracts the human-readable title from a GitHub webhook payload.
- * Checks `issue.title` first, then `pull_request.title`.
- *
- * @param payload - Raw GitHub webhook payload
- * @returns The issue/PR title, or null if not found
- */
-export function extractTargetTitle(payload: Record<string, unknown>): string | null {
-  const issue = payload["issue"] as { title?: string } | undefined;
-  if (typeof issue?.title === "string") return issue.title;
-
-  const pr = payload["pull_request"] as { title?: string } | undefined;
-  if (typeof pr?.title === "string") return pr.title;
-
-  return null;
-}
+export { extractTargetTitle } from "./extract-target-title.js";
 
 export { createApp } from "./app.js";
 export { matchAgents } from "./router.js";
