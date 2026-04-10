@@ -6,12 +6,12 @@
 import { createApp } from "./app.js";
 import { matchAgents } from "./router.js";
 import { createJobQueue, JobHistory, QUEUE_NAME } from "@crewline/worker";
-import type { CrewlineConfig, GitHubEventName } from "@crewline/shared";
-import { toJobSummary } from "@crewline/shared";
+import type { CrewlineConfig, GitHubEventName, JobSummary, JobStatus } from "@crewline/shared";
 import { recoverPendingWork } from "./recovery.js";
 import { createGitHubSearchClient } from "./github-search-client.js";
 import { createDashboardRoutes } from "./routes/dashboard.js";
 import { QueueEvents } from "bullmq";
+import type { Job as BullJob } from "bullmq";
 
 export interface StartServerOptions {
   config: CrewlineConfig;
@@ -33,31 +33,50 @@ export async function startServer(options: StartServerOptions) {
   const queueEvents = new QueueEvents(QUEUE_NAME, { connection: redisConnection });
 
   queueEvents.on("waiting", async ({ jobId }) => {
-    const job = jobHistory.getById(jobId);
-    if (job) {
-      dashboardRoutes.publish({ type: "job:enqueued", job: toJobSummary(job) });
-    }
+    const bullJob = await queue.raw.getJob(jobId);
+    if (!bullJob) return;
+    dashboardRoutes.publish({
+      type: "job:enqueued",
+      job: buildJobSummary(bullJob, "pending"),
+    });
   });
 
   queueEvents.on("active", async ({ jobId }) => {
-    const job = jobHistory.getById(jobId);
-    if (job) {
-      dashboardRoutes.publish({ type: "job:started", job: toJobSummary(job) });
-    }
+    const bullJob = await queue.raw.getJob(jobId);
+    if (!bullJob) return;
+    dashboardRoutes.publish({
+      type: "job:started",
+      job: buildJobSummary(bullJob, "running"),
+    });
   });
 
   queueEvents.on("completed", async ({ jobId }) => {
-    const job = jobHistory.getById(jobId);
-    if (job) {
-      dashboardRoutes.publish({ type: "job:completed", job: toJobSummary(job) });
-    }
+    const bullJob = await queue.raw.getJob(jobId);
+    if (!bullJob) return;
+    const returnValue = bullJob.returnvalue as { exitCode?: number; result?: string } | undefined;
+    dashboardRoutes.publish({
+      type: "job:completed",
+      job: {
+        ...buildJobSummary(bullJob, "completed"),
+        completedAt: bullJob.finishedOn ? new Date(bullJob.finishedOn).toISOString() : new Date().toISOString(),
+        result: returnValue?.result ?? null,
+        exitCode: returnValue?.exitCode ?? null,
+      },
+    });
   });
 
-  queueEvents.on("failed", async ({ jobId }) => {
-    const job = jobHistory.getById(jobId);
-    if (job) {
-      dashboardRoutes.publish({ type: "job:failed", job: toJobSummary(job) });
-    }
+  queueEvents.on("failed", async ({ jobId, failedReason }) => {
+    const bullJob = await queue.raw.getJob(jobId);
+    if (!bullJob) return;
+    dashboardRoutes.publish({
+      type: "job:failed",
+      job: {
+        ...buildJobSummary(bullJob, "failed"),
+        completedAt: bullJob.finishedOn ? new Date(bullJob.finishedOn).toISOString() : new Date().toISOString(),
+        result: failedReason,
+        exitCode: null,
+      },
+    });
   });
 
   const app = createApp({
@@ -108,6 +127,29 @@ export async function startServer(options: StartServerOptions) {
   });
 
   return { server, queue, jobHistory, queueEvents };
+}
+
+/**
+ * Builds a JobSummary from a BullMQ job and the current lifecycle status.
+ * This avoids relying on JobHistory lookups which use a different ID than BullMQ.
+ *
+ * @param bullJob - The BullMQ job instance
+ * @param status - The current job lifecycle status
+ * @returns A JobSummary constructed from the BullMQ job data
+ */
+function buildJobSummary(bullJob: BullJob, status: JobStatus): JobSummary {
+  return {
+    id: bullJob.id ?? crypto.randomUUID(),
+    agentName: bullJob.data.agentName as string,
+    status,
+    repository: bullJob.data.repository as string,
+    targetNumber: bullJob.data.targetNumber as number,
+    createdAt: new Date(bullJob.timestamp).toISOString(),
+    startedAt: bullJob.processedOn ? new Date(bullJob.processedOn).toISOString() : null,
+    completedAt: null,
+    result: null,
+    exitCode: null,
+  };
 }
 
 function extractTargetNumber(payload: Record<string, unknown>): number {
