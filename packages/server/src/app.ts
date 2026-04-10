@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { GitHubEventName } from "@crewline/shared";
 import { verifyGitHubSignature } from "./middleware/github-signature.js";
+import type { createDashboardRoutes } from "./routes/dashboard.js";
 
 export interface WebhookEvent {
   eventName: GitHubEventName;
@@ -10,6 +11,8 @@ export interface WebhookEvent {
 export interface AppOptions {
   webhookSecret: string;
   onEvent: (event: WebhookEvent) => Promise<void>;
+  /** Optional dashboard routes sub-app (mounted when provided) */
+  dashboardRoutes?: ReturnType<typeof createDashboardRoutes>;
 }
 
 export function createApp(options: AppOptions) {
@@ -38,6 +41,10 @@ export function createApp(options: AppOptions) {
 
     return c.json({ received: true });
   });
+
+  if (options.dashboardRoutes) {
+    app.route("/", options.dashboardRoutes);
+  }
 
   return app;
 }

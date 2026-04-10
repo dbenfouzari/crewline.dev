@@ -83,6 +83,33 @@ export class JobHistory {
     return rows.map(rowToJob);
   }
 
+  /**
+   * Returns all jobs ordered by createdAt descending.
+   *
+   * @returns All jobs in the history
+   */
+  listAll(): Job[] {
+    const rows = this.db
+      .query("SELECT * FROM job_history ORDER BY created_at DESC")
+      .all() as Record<string, unknown>[];
+    return rows.map(rowToJob);
+  }
+
+  /**
+   * Returns all jobs for a given issue/PR number, ordered by createdAt descending.
+   *
+   * @param targetNumber - The issue or PR number to filter by
+   * @returns Jobs matching the target number
+   */
+  listByTargetNumber(targetNumber: number): Job[] {
+    const rows = this.db
+      .query(
+        "SELECT * FROM job_history WHERE target_number = ? ORDER BY created_at DESC",
+      )
+      .all(targetNumber) as Record<string, unknown>[];
+    return rows.map(rowToJob);
+  }
+
   listRecent(limit: number = 50): Job[] {
     const rows = this.db
       .query("SELECT * FROM job_history ORDER BY created_at DESC LIMIT ?")

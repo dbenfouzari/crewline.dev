@@ -5,24 +5,64 @@
 
 import { createApp } from "./app.js";
 import { matchAgents } from "./router.js";
-import { createJobQueue } from "@crewline/worker";
+import { createJobQueue, JobHistory, QUEUE_NAME } from "@crewline/worker";
 import type { CrewlineConfig, GitHubEventName } from "@crewline/shared";
+import { toJobSummary } from "@crewline/shared";
 import { recoverPendingWork } from "./recovery.js";
 import { createGitHubSearchClient } from "./github-search-client.js";
+import { createDashboardRoutes } from "./routes/dashboard.js";
+import { QueueEvents } from "bullmq";
 
 export interface StartServerOptions {
   config: CrewlineConfig;
   redisUrl?: string;
   port?: number;
+  /** Path to the SQLite database file (default: "./crewline.db") */
+  databasePath?: string;
 }
 
 export async function startServer(options: StartServerOptions) {
-  const { config, redisUrl = "redis://localhost:6379", port = 3000 } = options;
+  const { config, redisUrl = "redis://localhost:6379", port = 3000, databasePath = "./crewline.db" } = options;
 
-  const queue = createJobQueue({ host: new URL(redisUrl).hostname, port: Number(new URL(redisUrl).port) || 6379 });
+  const redisConnection = { host: new URL(redisUrl).hostname, port: Number(new URL(redisUrl).port) || 6379 };
+  const queue = createJobQueue(redisConnection);
+
+  const jobHistory = new JobHistory(databasePath);
+  const dashboardRoutes = createDashboardRoutes({ jobHistory });
+
+  const queueEvents = new QueueEvents(QUEUE_NAME, { connection: redisConnection });
+
+  queueEvents.on("waiting", async ({ jobId }) => {
+    const job = jobHistory.getById(jobId);
+    if (job) {
+      dashboardRoutes.publish({ type: "job:enqueued", job: toJobSummary(job) });
+    }
+  });
+
+  queueEvents.on("active", async ({ jobId }) => {
+    const job = jobHistory.getById(jobId);
+    if (job) {
+      dashboardRoutes.publish({ type: "job:started", job: toJobSummary(job) });
+    }
+  });
+
+  queueEvents.on("completed", async ({ jobId }) => {
+    const job = jobHistory.getById(jobId);
+    if (job) {
+      dashboardRoutes.publish({ type: "job:completed", job: toJobSummary(job) });
+    }
+  });
+
+  queueEvents.on("failed", async ({ jobId }) => {
+    const job = jobHistory.getById(jobId);
+    if (job) {
+      dashboardRoutes.publish({ type: "job:failed", job: toJobSummary(job) });
+    }
+  });
 
   const app = createApp({
     webhookSecret: config.github.webhookSecret,
+    dashboardRoutes,
     onEvent: async ({ eventName, payload }) => {
       const repo = (payload["repository"] as { full_name?: string })?.full_name;
 
@@ -67,7 +107,7 @@ export async function startServer(options: StartServerOptions) {
     console.error("[server] Recovery failed (non-fatal):", error);
   });
 
-  return { server, queue };
+  return { server, queue, jobHistory, queueEvents };
 }
 
 function extractTargetNumber(payload: Record<string, unknown>): number {
@@ -87,3 +127,5 @@ export { verifyGitHubSignature } from "./middleware/github-signature.js";
 export { recoverPendingWork } from "./recovery.js";
 export { createGitHubSearchClient } from "./github-search-client.js";
 export type { GitHubSearchClient, IssueSearchResult, PullRequestSearchResult } from "./github-search-client.js";
+export { createDashboardRoutes } from "./routes/dashboard.js";
+export type { DashboardDependencies, SSESubscriber } from "./routes/dashboard.js";
