@@ -216,6 +216,9 @@ describe("Dashboard Routes", () => {
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
 
+      // Skip the initial ": connected" comment
+      await reader.read();
+
       const job = makeJob({ agentName: "architect", status: "completed" });
       const event: JobLifecycleEvent = {
         type: "job:completed",
@@ -234,10 +237,66 @@ describe("Dashboard Routes", () => {
       reader.cancel();
     });
 
+    it("includes targetTitle in SSE event payload", async () => {
+      const response = await app.request("/events");
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+
+      // Skip the initial ": connected" comment
+      await reader.read();
+
+      const job = makeJob({
+        agentName: "dev",
+        status: "completed",
+        targetTitle: "Add CI pipeline",
+      });
+      const event: JobLifecycleEvent = {
+        type: "job:completed",
+        job: toJobSummary(job),
+      };
+
+      dashboardRoutes.publish(event);
+
+      const { value } = await reader.read();
+      const text = decoder.decode(value);
+
+      expect(text).toContain(`"targetTitle":"Add CI pipeline"`);
+      expect(text).not.toContain("payload");
+
+      reader.cancel();
+    });
+
+    it("includes null targetTitle in SSE event payload when no title", async () => {
+      const response = await app.request("/events");
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+
+      // Skip the initial ": connected" comment
+      await reader.read();
+
+      const job = makeJob({ agentName: "dev", status: "completed", targetTitle: null });
+      const event: JobLifecycleEvent = {
+        type: "job:completed",
+        job: toJobSummary(job),
+      };
+
+      dashboardRoutes.publish(event);
+
+      const { value } = await reader.read();
+      const text = decoder.decode(value);
+
+      expect(text).toContain(`"targetTitle":null`);
+
+      reader.cancel();
+    });
+
     it("delivers multiple events in sequence to a connected client", async () => {
       const response = await app.request("/events");
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
+
+      // Skip the initial ": connected" comment
+      await reader.read();
 
       const job1 = makeJob({ agentName: "requirementsGatherer", status: "completed" });
       const job2 = makeJob({ agentName: "dev", status: "failed" });
