@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { extractTargetTitle } from "./index.js";
+import { extractTargetTitle } from "./extract-target-title.js";
 
 describe("extractTargetTitle", () => {
   it("extracts title from issue payload", () => {
