@@ -55,7 +55,8 @@ export async function fetchJobs(status?: JobStatus): Promise<JobSummary[]> {
     throw new Error(`Failed to fetch jobs: ${response.status}`);
   }
   const data: unknown = await response.json();
-  return z.array(JobSummarySchema).parse(data);
+  const envelope = z.object({ jobs: z.array(JobSummarySchema) }).parse(data);
+  return envelope.jobs;
 }
 
 /**

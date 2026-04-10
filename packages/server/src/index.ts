@@ -114,6 +114,7 @@ export async function startServer(options: StartServerOptions) {
   const server = Bun.serve({
     port,
     fetch: app.fetch,
+    idleTimeout: 255, // Max value — SSE connections need to stay open
   });
 
   console.log(`[server] Crewline server listening on http://localhost:${String(server.port)}`);

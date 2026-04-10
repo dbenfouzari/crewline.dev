@@ -79,6 +79,9 @@ export function createDashboardRoutes(deps: DashboardDependencies) {
 
         subscribers.add(subscriber);
 
+        /** Send initial comment to trigger EventSource onopen immediately */
+        controller.enqueue(encoder.encode(": connected\n\n"));
+
         /** Send a keep-alive comment every 30 seconds */
         const keepAlive = setInterval(() => {
           try {
