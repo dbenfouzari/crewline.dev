@@ -12,6 +12,7 @@ import { createGitHubSearchClient } from "./github-search-client.js";
 import { createDashboardRoutes } from "./routes/dashboard.js";
 import { QueueEvents } from "bullmq";
 import type { Job as BullJob } from "bullmq";
+import { extractTargetTitle } from "./extract-target-title.js";
 
 export interface StartServerOptions {
   config: CrewlineConfig;
@@ -100,11 +101,13 @@ export async function startServer(options: StartServerOptions) {
 
       for (const [agentKey, _agent] of matches) {
         const targetNumber = extractTargetNumber(payload);
+        const targetTitle = extractTargetTitle(payload);
         const jobId = await queue.enqueue({
           agentName: agentKey,
           payload: JSON.stringify(payload),
           repository: repo ?? "unknown",
           targetNumber,
+          targetTitle,
         });
         console.log(`[server] Enqueued job ${jobId} for agent "${agentKey}" on ${repo}#${String(targetNumber)}`);
       }
@@ -145,6 +148,7 @@ function buildJobSummary(bullJob: BullJob, status: JobStatus): JobSummary {
     status,
     repository: bullJob.data.repository as string,
     targetNumber: bullJob.data.targetNumber as number,
+    targetTitle: (bullJob.data.targetTitle as string) ?? null,
     createdAt: new Date(bullJob.timestamp).toISOString(),
     startedAt: bullJob.processedOn ? new Date(bullJob.processedOn).toISOString() : null,
     completedAt: null,
@@ -162,6 +166,8 @@ function extractTargetNumber(payload: Record<string, unknown>): number {
 
   return 0;
 }
+
+export { extractTargetTitle } from "./extract-target-title.js";
 
 export { createApp } from "./app.js";
 export { matchAgents } from "./router.js";

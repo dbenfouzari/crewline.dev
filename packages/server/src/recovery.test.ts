@@ -286,6 +286,30 @@ describe("recoverPendingWork", () => {
     expect(enqueued).toHaveLength(0);
   });
 
+  it("passes targetTitle extracted from issue payload when re-enqueueing", async () => {
+    const { queue, enqueued } = createMockQueue();
+    const client = createMockGitHubClient({
+      "owner/repo:ready": [createIssueResult(5, ["ready"])],
+    });
+
+    await recoverPendingWork({ config: testConfig, queue, githubClient: client });
+
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]!.targetTitle).toBe("Issue #5");
+  });
+
+  it("passes targetTitle extracted from PR payload when re-enqueueing", async () => {
+    const { queue, enqueued } = createMockQueue();
+    const client = createMockGitHubClient({}, {
+      "owner/repo:ready-for-test": [createPullRequestResult(42)],
+    });
+
+    await recoverPendingWork({ config: testConfig, queue, githubClient: client });
+
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]!.targetTitle).toBe("PR #42");
+  });
+
   it("continues recovery when GitHub client fails for one label", async () => {
     const { queue, enqueued } = createMockQueue();
     const client: GitHubSearchClient = {

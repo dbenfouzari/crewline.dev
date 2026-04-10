@@ -14,12 +14,17 @@ const CREATE_TABLE = `
     payload TEXT NOT NULL,
     repository TEXT NOT NULL,
     target_number INTEGER NOT NULL,
+    target_title TEXT,
     created_at TEXT NOT NULL,
     started_at TEXT,
     completed_at TEXT,
     result TEXT,
     exit_code INTEGER
   )
+`;
+
+const ADD_TARGET_TITLE_COLUMN = `
+  ALTER TABLE job_history ADD COLUMN target_title TEXT
 `;
 
 function rowToJob(row: Record<string, unknown>): Job {
@@ -30,6 +35,7 @@ function rowToJob(row: Record<string, unknown>): Job {
     payload: row["payload"] as string,
     repository: row["repository"] as string,
     targetNumber: row["target_number"] as number,
+    targetTitle: (row["target_title"] as string) ?? null,
     createdAt: row["created_at"] as string,
     startedAt: (row["started_at"] as string) ?? null,
     completedAt: (row["completed_at"] as string) ?? null,
@@ -45,13 +51,18 @@ export class JobHistory {
     this.db = new Database(path);
     this.db.run("PRAGMA journal_mode = WAL");
     this.db.run(CREATE_TABLE);
+    try {
+      this.db.run(ADD_TARGET_TITLE_COLUMN);
+    } catch {
+      // Column already exists — safe to ignore
+    }
   }
 
   record(job: Job): void {
     this.db.run(
       `INSERT OR REPLACE INTO job_history
-       (id, agent_name, status, payload, repository, target_number, created_at, started_at, completed_at, result, exit_code)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, agent_name, status, payload, repository, target_number, target_title, created_at, started_at, completed_at, result, exit_code)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         job.id,
         job.agentName,
@@ -59,6 +70,7 @@ export class JobHistory {
         job.payload,
         job.repository,
         job.targetNumber,
+        job.targetTitle,
         job.createdAt,
         job.startedAt,
         job.completedAt,
