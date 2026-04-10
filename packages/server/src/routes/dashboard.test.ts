@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 import { JobHistory } from "@crewline/worker";
-import type { Job } from "@crewline/shared";
+import type { Job, JobLifecycleEvent } from "@crewline/shared";
+import { toJobSummary } from "@crewline/shared";
 import { createDashboardRoutes } from "./dashboard.js";
 
 function makeJob(overrides: Partial<Job> = {}): Job {
@@ -24,10 +25,11 @@ function makeJob(overrides: Partial<Job> = {}): Job {
 describe("Dashboard Routes", () => {
   let history: JobHistory;
   let app: Hono;
+  let dashboardRoutes: ReturnType<typeof createDashboardRoutes>;
 
   beforeEach(() => {
     history = new JobHistory(":memory:");
-    const dashboardRoutes = createDashboardRoutes({ jobHistory: history });
+    dashboardRoutes = createDashboardRoutes({ jobHistory: history });
     app = new Hono();
     app.route("/", dashboardRoutes);
   });
@@ -177,6 +179,22 @@ describe("Dashboard Routes", () => {
       const response = await app.request("/pipeline/abc");
       expect(response.status).toBe(400);
     });
+
+    it("returns 400 for zero issue number", async () => {
+      const response = await app.request("/pipeline/0");
+      expect(response.status).toBe(400);
+
+      const body = (await response.json()) as { error: string };
+      expect(body.error).toBe("Invalid issue number");
+    });
+
+    it("returns 400 for negative issue number", async () => {
+      const response = await app.request("/pipeline/-1");
+      expect(response.status).toBe(400);
+
+      const body = (await response.json()) as { error: string };
+      expect(body.error).toBe("Invalid issue number");
+    });
   });
 
   describe("GET /events (SSE)", () => {
@@ -186,6 +204,53 @@ describe("Dashboard Routes", () => {
       expect(response.headers.get("content-type")).toBe("text/event-stream");
       expect(response.headers.get("cache-control")).toBe("no-cache");
       expect(response.headers.get("connection")).toBe("keep-alive");
+    });
+
+    it("delivers published events to connected SSE clients", async () => {
+      const response = await app.request("/events");
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+
+      const job = makeJob({ agentName: "architect", status: "completed" });
+      const event: JobLifecycleEvent = {
+        type: "job:completed",
+        job: toJobSummary(job),
+      };
+
+      dashboardRoutes.publish(event);
+
+      const { value } = await reader.read();
+      const text = decoder.decode(value);
+
+      expect(text).toContain("event: job:completed");
+      expect(text).toContain(`"agentName":"architect"`);
+      expect(text).not.toContain("payload");
+
+      reader.cancel();
+    });
+
+    it("delivers multiple events in sequence to a connected client", async () => {
+      const response = await app.request("/events");
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+
+      const job1 = makeJob({ agentName: "requirementsGatherer", status: "completed" });
+      const job2 = makeJob({ agentName: "dev", status: "failed" });
+
+      dashboardRoutes.publish({ type: "job:completed", job: toJobSummary(job1) });
+      dashboardRoutes.publish({ type: "job:failed", job: toJobSummary(job2) });
+
+      const { value: chunk1 } = await reader.read();
+      const text1 = decoder.decode(chunk1);
+      expect(text1).toContain("event: job:completed");
+      expect(text1).toContain(`"agentName":"requirementsGatherer"`);
+
+      const { value: chunk2 } = await reader.read();
+      const text2 = decoder.decode(chunk2);
+      expect(text2).toContain("event: job:failed");
+      expect(text2).toContain(`"agentName":"dev"`);
+
+      reader.cancel();
     });
   });
 });
