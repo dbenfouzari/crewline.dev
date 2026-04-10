@@ -4,12 +4,49 @@
  */
 
 import type { JobStatus, JobSummary, PipelineState } from "@crewline/shared";
+import { z } from "zod";
+
+/**
+ * Zod schema for validating JobSummary responses at the API boundary.
+ */
+const JobSummarySchema = z.object({
+  id: z.string(),
+  agentName: z.string(),
+  status: z.enum(["pending", "running", "completed", "failed"]),
+  repository: z.string(),
+  targetNumber: z.number(),
+  createdAt: z.string(),
+  startedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+  result: z.string().nullable(),
+  exitCode: z.number().nullable(),
+});
+
+/**
+ * Zod schema for validating PipelineStageSnapshot responses.
+ */
+const PipelineStageSnapshotSchema = z.object({
+  agentName: z.string(),
+  status: z.enum(["pending", "running", "completed", "failed"]),
+  jobId: z.string(),
+  createdAt: z.string(),
+  startedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+});
+
+/**
+ * Zod schema for validating PipelineState responses at the API boundary.
+ */
+const PipelineStateSchema = z.object({
+  issueNumber: z.number(),
+  stages: z.array(PipelineStageSnapshotSchema),
+});
 
 /**
  * Fetches job summaries from the server, optionally filtered by status.
  *
  * @param status - Optional job status filter
- * @returns Array of job summaries
+ * @returns Array of job summaries validated with Zod
  */
 export async function fetchJobs(status?: JobStatus): Promise<JobSummary[]> {
   const url = status ? `/api/jobs?status=${status}` : "/api/jobs";
@@ -18,14 +55,14 @@ export async function fetchJobs(status?: JobStatus): Promise<JobSummary[]> {
     throw new Error(`Failed to fetch jobs: ${response.status}`);
   }
   const data: unknown = await response.json();
-  return data as JobSummary[];
+  return z.array(JobSummarySchema).parse(data);
 }
 
 /**
  * Fetches the pipeline state for a specific issue.
  *
  * @param issueNumber - The GitHub issue or PR number
- * @returns The pipeline state with stage snapshots
+ * @returns The pipeline state with stage snapshots, validated with Zod
  */
 export async function fetchPipeline(
   issueNumber: number,
@@ -35,7 +72,7 @@ export async function fetchPipeline(
     throw new Error(`Failed to fetch pipeline: ${response.status}`);
   }
   const data: unknown = await response.json();
-  return data as PipelineState;
+  return PipelineStateSchema.parse(data);
 }
 
 /**

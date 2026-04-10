@@ -18,11 +18,12 @@ export type ConnectionState = "connecting" | "connected" | "disconnected";
 export const connectionState = writable<ConnectionState>("disconnected");
 
 let eventSource: EventSource | null = null;
+let hasConnectedBefore = false;
 
 /**
  * Starts the SSE connection and wires up event handlers.
- * On open: sets state to "connected".
- * On error: sets state to "disconnected", re-fetches jobs on reconnect.
+ * On open: sets state to "connected". On reconnect, re-fetches jobs to backfill missed events.
+ * On error: sets state to "disconnected". EventSource reconnects automatically.
  * On message: parses JobLifecycleEvent and applies to the job store.
  */
 export function startSSE(): void {
@@ -30,18 +31,22 @@ export function startSSE(): void {
     return;
   }
 
+  hasConnectedBefore = false;
   connectionState.set("connecting");
   eventSource = createEventSource();
 
   eventSource.onopen = () => {
     connectionState.set("connected");
+    // On reconnect (not first connect), re-fetch to backfill events missed during disconnect.
+    if (hasConnectedBefore) {
+      void loadJobs();
+    }
+    hasConnectedBefore = true;
   };
 
   eventSource.onerror = () => {
     connectionState.set("disconnected");
-    // EventSource reconnects automatically.
-    // On reconnect, onopen fires and we re-fetch to backfill missed events.
-    void loadJobs();
+    // EventSource reconnects automatically — onopen will fire on success.
   };
 
   eventSource.onmessage = (messageEvent: MessageEvent) => {
@@ -57,6 +62,7 @@ export function stopSSE(): void {
   if (eventSource) {
     eventSource.close();
     eventSource = null;
+    hasConnectedBefore = false;
     connectionState.set("disconnected");
   }
 }
