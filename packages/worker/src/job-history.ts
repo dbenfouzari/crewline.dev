@@ -15,6 +15,7 @@ const CREATE_TABLE = `
     repository TEXT NOT NULL,
     target_number INTEGER NOT NULL,
     issue_number INTEGER,
+    target_title TEXT,
     created_at TEXT NOT NULL,
     started_at TEXT,
     completed_at TEXT,
@@ -27,6 +28,10 @@ const MIGRATE_ADD_ISSUE_NUMBER = `
   ALTER TABLE job_history ADD COLUMN issue_number INTEGER
 `;
 
+const MIGRATE_ADD_TARGET_TITLE = `
+  ALTER TABLE job_history ADD COLUMN target_title TEXT
+`;
+
 function rowToJob(row: Record<string, unknown>): Job {
   return {
     id: row["id"] as string,
@@ -36,6 +41,7 @@ function rowToJob(row: Record<string, unknown>): Job {
     repository: row["repository"] as string,
     targetNumber: row["target_number"] as number,
     issueNumber: (row["issue_number"] as number) ?? null,
+    targetTitle: (row["target_title"] as string) ?? null,
     createdAt: row["created_at"] as string,
     startedAt: (row["started_at"] as string) ?? null,
     completedAt: (row["completed_at"] as string) ?? null,
@@ -56,9 +62,12 @@ export class JobHistory {
   /** Runs idempotent schema migrations for existing databases. */
   private migrate(): void {
     const columns = this.db.query("PRAGMA table_info(job_history)").all() as { name: string }[];
-    const hasIssueNumber = columns.some((column) => column.name === "issue_number");
-    if (!hasIssueNumber) {
+    const columnNames = new Set(columns.map((column) => column.name));
+    if (!columnNames.has("issue_number")) {
       this.db.run(MIGRATE_ADD_ISSUE_NUMBER);
+    }
+    if (!columnNames.has("target_title")) {
+      this.db.run(MIGRATE_ADD_TARGET_TITLE);
     }
   }
 
@@ -78,8 +87,8 @@ export class JobHistory {
   record(job: Job): void {
     this.db.run(
       `INSERT OR REPLACE INTO job_history
-       (id, agent_name, status, payload, repository, target_number, issue_number, created_at, started_at, completed_at, result, exit_code)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, agent_name, status, payload, repository, target_number, issue_number, target_title, created_at, started_at, completed_at, result, exit_code)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         job.id,
         job.agentName,
@@ -88,6 +97,7 @@ export class JobHistory {
         job.repository,
         job.targetNumber,
         job.issueNumber,
+        job.targetTitle,
         job.createdAt,
         job.startedAt,
         job.completedAt,

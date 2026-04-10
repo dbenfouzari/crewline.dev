@@ -16,6 +16,7 @@ export interface QueueJobData {
   repository: string;
   targetNumber: number;
   issueNumber: number | null;
+  targetTitle: string | null;
 }
 
 export type JobProcessor = (data: QueueJobData) => Promise<{ exitCode: number; result: string }>;
@@ -32,6 +33,7 @@ export function createJobQueue(connection: ConnectionOptions) {
         repository: newJob.repository,
         targetNumber: newJob.targetNumber,
         issueNumber: newJob.issueNumber,
+        targetTitle: newJob.targetTitle,
       }, { priority });
       return job.id!;
     },

@@ -11,6 +11,7 @@ function createMockJobSummary(
     repository: "owner/repo",
     targetNumber: 7,
     issueNumber: null,
+    targetTitle: null,
     createdAt: "2026-04-10T12:00:00Z",
     startedAt: null,
     completedAt: null,
@@ -25,6 +26,7 @@ function createMockPipelineState(
 ): PipelineState {
   return {
     issueNumber: 7,
+    title: null,
     stages: [
       {
         agentName: "requirementsGatherer",

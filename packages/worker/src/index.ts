@@ -69,6 +69,7 @@ export async function startWorker(options: StartWorkerOptions) {
         repository: data.repository,
         targetNumber: data.targetNumber,
         issueNumber: data.issueNumber,
+        targetTitle: data.targetTitle,
         createdAt: new Date().toISOString(),
         startedAt: new Date().toISOString(),
         completedAt: null,

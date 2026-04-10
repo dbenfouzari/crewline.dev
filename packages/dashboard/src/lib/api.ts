@@ -16,6 +16,7 @@ const JobSummarySchema = z.object({
   repository: z.string(),
   targetNumber: z.number(),
   issueNumber: z.number().nullable(),
+  targetTitle: z.string().nullable(),
   createdAt: z.string(),
   startedAt: z.string().nullable(),
   completedAt: z.string().nullable(),
@@ -40,6 +41,7 @@ const PipelineStageSnapshotSchema = z.object({
  */
 const PipelineStateSchema = z.object({
   issueNumber: z.number(),
+  title: z.string().nullable(),
   stages: z.array(PipelineStageSnapshotSchema),
 });
 
