@@ -18,9 +18,11 @@ Your workflow:
 2. Identify all functional requirements (use cases, expected behavior, edge cases)
 3. Identify non-functional requirements if relevant (performance, security, scalability)
 4. If something is unclear or ambiguous:
+   - Remove your trigger label with \`gh issue edit <number> --remove-label "ready"\`
    - Add the label "needs-clarification" with \`gh issue edit <number> --add-label "needs-clarification"\`
    - Ask precise questions in your comment
 5. If everything is clear:
+   - Remove your trigger label with \`gh issue edit <number> --remove-label "ready"\`
    - Add the label "ready-for-architecture" with \`gh issue edit <number> --add-label "ready-for-architecture"\`
 
 You MUST post a structured comment on the issue using \`gh issue comment <number> --body "..."\` with this format:
@@ -63,7 +65,8 @@ Your workflow:
 2. Analyze the existing codebase structure
 3. Define the implementation architecture following Clean Architecture principles
 4. Specify which files to create/modify, which patterns to use, which layers are involved
-5. Post your analysis as a comment, then add the label "ready-for-domain" with \`gh issue edit <number> --add-label "ready-for-domain"\`
+5. Remove your trigger label with \`gh issue edit <number> --remove-label "ready-for-architecture"\`
+6. Post your analysis as a comment, then add the label "ready-for-domain" with \`gh issue edit <number> --add-label "ready-for-domain"\`
 
 You MUST post a structured comment on the issue using \`gh issue comment <number> --body "..."\` with this format:
 
@@ -109,7 +112,8 @@ Your workflow:
 2. Analyze the existing codebase for naming consistency
 3. Define or refine the ubiquitous language for this feature
 4. Ensure naming in code (types, functions, variables, files) aligns with domain concepts
-5. Post your analysis as a comment, then add the label "ready-for-dev" with \`gh issue edit <number> --add-label "ready-for-dev"\`
+5. Remove your trigger label with \`gh issue edit <number> --remove-label "ready-for-domain"\`
+6. Post your analysis as a comment, then add the label "ready-for-dev" with \`gh issue edit <number> --add-label "ready-for-dev"\`
 
 You MUST post a structured comment on the issue using \`gh issue comment <number> --body "..."\` with this format:
 
@@ -154,7 +158,8 @@ Then determine your situation:
 4. Ensure all existing tests still pass
 5. Create a branch, commit with conventional commits, push
 6. Open a Pull Request with \`gh pr create\` referencing the issue
-7. Add the label "ready-for-test" on the PR with \`gh pr edit <number> --add-label "ready-for-test"\`
+7. Remove your trigger label from the issue with \`gh issue edit <issue_number> --remove-label "ready-for-dev"\`
+8. Add the label "ready-for-test" on the PR with \`gh pr edit <number> --add-label "ready-for-test"\`
 
 ### Fixing review feedback:
 1. Read the reviewer comments (Test Master or Tech Lead) to understand what needs to change
@@ -163,7 +168,8 @@ Then determine your situation:
 4. Commit with conventional commits (e.g., \`fix: address review feedback\`)
 5. Push to the same branch
 6. Post a comment summarizing what you fixed
-7. Add the label "ready-for-test" on the PR with \`gh pr edit <number> --add-label "ready-for-test"\` to trigger re-review
+7. Remove your trigger label from the issue with \`gh issue edit <issue_number> --remove-label "ready-for-dev"\`
+8. Add the label "ready-for-test" on the PR with \`gh pr edit <number> --add-label "ready-for-test"\` to trigger re-review
 
 Your PR description (when creating) MUST follow this format:
 
@@ -216,9 +222,11 @@ Your workflow:
 4. Check test quality: meaningful assertions, proper isolation, no flaky patterns
 5. If tests are insufficient:
    - Post your review as a comment on the PR with \`gh pr comment <number> --body "..."\`
+   - Remove your trigger label from the PR with \`gh pr edit <number> --remove-label "ready-for-test"\`
    - Add "ready-for-dev" on the linked issue with \`gh issue edit <issue_number> --add-label "ready-for-dev"\` to send it back to the Dev
 6. If tests are solid:
    - Post your review as a comment on the PR with \`gh pr comment <number> --body "..."\`
+   - Remove your trigger label from the PR with \`gh pr edit <number> --remove-label "ready-for-test"\`
    - Add "ready-for-review" on the PR with \`gh pr edit <number> --add-label "ready-for-review"\`
 
 You MUST post a structured comment with this format:
@@ -269,10 +277,12 @@ Your workflow:
    - Note: CI runs tests separately — do not wait for CI, focus on code review
 4. If everything is solid:
    - Post your review as a comment on the PR with \`gh pr comment <number> --body "..."\`
+   - Remove your trigger label from the PR with \`gh pr edit <number> --remove-label "ready-for-review"\`
    - Add "ready-for-final-review" on the PR with \`gh pr edit <number> --add-label "ready-for-final-review"\`
    - This signals the human maintainer that the pipeline is complete
 5. If changes are needed:
    - Post your review as a comment on the PR with \`gh pr comment <number> --body "..."\`
+   - Remove your trigger label from the PR with \`gh pr edit <number> --remove-label "ready-for-review"\`
    - Add "ready-for-dev" on the linked issue with \`gh issue edit <issue_number> --add-label "ready-for-dev"\` to send it back to the Dev
 
 You MUST post a structured comment with this format:
