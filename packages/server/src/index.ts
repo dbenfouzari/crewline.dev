@@ -100,11 +100,13 @@ export async function startServer(options: StartServerOptions) {
 
       for (const [agentKey, _agent] of matches) {
         const targetNumber = extractTargetNumber(payload);
+        const targetTitle = extractTargetTitle(payload);
         const jobId = await queue.enqueue({
           agentName: agentKey,
           payload: JSON.stringify(payload),
           repository: repo ?? "unknown",
           targetNumber,
+          targetTitle,
         });
         console.log(`[server] Enqueued job ${jobId} for agent "${agentKey}" on ${repo}#${String(targetNumber)}`);
       }
@@ -145,6 +147,7 @@ function buildJobSummary(bullJob: BullJob, status: JobStatus): JobSummary {
     status,
     repository: bullJob.data.repository as string,
     targetNumber: bullJob.data.targetNumber as number,
+    targetTitle: (bullJob.data.targetTitle as string) ?? null,
     createdAt: new Date(bullJob.timestamp).toISOString(),
     startedAt: bullJob.processedOn ? new Date(bullJob.processedOn).toISOString() : null,
     completedAt: null,
@@ -161,6 +164,23 @@ function extractTargetNumber(payload: Record<string, unknown>): number {
   if (pr?.number) return pr.number;
 
   return 0;
+}
+
+/**
+ * Extracts the human-readable title from a GitHub webhook payload.
+ * Checks `issue.title` first, then `pull_request.title`.
+ *
+ * @param payload - Raw GitHub webhook payload
+ * @returns The issue/PR title, or null if not found
+ */
+function extractTargetTitle(payload: Record<string, unknown>): string | null {
+  const issue = payload["issue"] as { title?: string } | undefined;
+  if (issue?.title) return issue.title;
+
+  const pr = payload["pull_request"] as { title?: string } | undefined;
+  if (pr?.title) return pr.title;
+
+  return null;
 }
 
 export { createApp } from "./app.js";

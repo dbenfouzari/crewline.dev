@@ -49,6 +49,8 @@ export interface PipelineStageSnapshot {
 export interface PipelineState {
   /** The issue or PR number */
   issueNumber: number;
+  /** Human-readable title of the target issue or PR, derived from the most recent job */
+  title: string | null;
   /** Snapshots for each agent that has jobs for this issue */
   stages: PipelineStageSnapshot[];
 }
@@ -106,5 +108,12 @@ export function aggregatePipelineState(
     completedAt: job.completedAt,
   }));
 
-  return { issueNumber, stages };
+  const mostRecentJob = jobs.reduce<Job | null>((latest, job) => {
+    if (!latest || job.createdAt > latest.createdAt) return job;
+    return latest;
+  }, null);
+
+  const title = mostRecentJob?.targetTitle ?? null;
+
+  return { issueNumber, title, stages };
 }

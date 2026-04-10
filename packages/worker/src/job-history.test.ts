@@ -21,6 +21,7 @@ describe("JobHistory", () => {
       payload: '{"action":"labeled"}',
       repository: "user/repo",
       targetNumber: 1,
+      targetTitle: null,
       createdAt: new Date().toISOString(),
       startedAt: new Date().toISOString(),
       completedAt: new Date().toISOString(),
@@ -103,5 +104,21 @@ describe("JobHistory", () => {
     history.record(makeJob({ targetNumber: 1 }));
 
     expect(history.listByTargetNumber(999)).toHaveLength(0);
+  });
+
+  it("records and retrieves targetTitle", () => {
+    const job = makeJob({ targetTitle: "Add CI pipeline with GitHub Actions" });
+    history.record(job);
+
+    const retrieved = history.getById(job.id);
+    expect(retrieved!.targetTitle).toBe("Add CI pipeline with GitHub Actions");
+  });
+
+  it("stores null targetTitle for jobs without a title", () => {
+    const job = makeJob({ targetTitle: null });
+    history.record(job);
+
+    const retrieved = history.getById(job.id);
+    expect(retrieved!.targetTitle).toBeNull();
   });
 });

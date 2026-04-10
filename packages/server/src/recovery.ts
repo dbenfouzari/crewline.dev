@@ -142,11 +142,17 @@ export async function recoverPendingWork(
       continue;
     }
 
+    const parsed = JSON.parse(candidate.payload) as Record<string, unknown>;
+    const issue = parsed["issue"] as { title?: string } | undefined;
+    const pr = parsed["pull_request"] as { title?: string } | undefined;
+    const targetTitle = issue?.title ?? pr?.title ?? null;
+
     const jobId = await queue.enqueue({
       agentName: candidate.agentKey,
       payload: candidate.payload,
       repository: candidate.repository,
       targetNumber: candidate.targetNumber,
+      targetTitle,
     });
 
     console.log(
