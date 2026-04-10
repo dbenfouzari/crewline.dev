@@ -19,6 +19,9 @@ dist/
 # IDE
 .idea/
 .vscode/
+
+# Claude Code memory
+.claude/
 *.swp
 *.swo
 
