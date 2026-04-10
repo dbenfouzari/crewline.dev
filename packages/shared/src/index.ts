@@ -13,3 +13,10 @@ export type {
   JobLifecycleEvent,
 } from "./types/dashboard.js";
 export { toJobSummary, aggregatePipelineState } from "./types/dashboard.js";
+export {
+  GitHubUserSchema,
+  GitHubRepositorySchema,
+  GitHubLabelSchema,
+  GitHubIssueSchema,
+  GitHubPullRequestSchema,
+} from "./schemas/github.js";

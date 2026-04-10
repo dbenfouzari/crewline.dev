@@ -8,6 +8,7 @@ import type {
   GitHubPullRequest,
   GitHubRepository,
 } from "@crewline/shared";
+import { GitHubIssueSchema, GitHubPullRequestSchema } from "@crewline/shared";
 
 /** Result of searching for issues with a specific label. */
 export interface IssueSearchResult {
@@ -64,7 +65,7 @@ export function createGitHubSearchClient(): GitHubSearchClient {
 
         if (!stdout.trim()) return [];
 
-        const items = stdout.trim().split("\n").map((line) => JSON.parse(line) as GitHubIssue);
+        const items = stdout.trim().split("\n").filter(Boolean).map((line) => GitHubIssueSchema.parse(JSON.parse(line)));
 
         return items.map((issue) => ({
           issue,
@@ -100,19 +101,7 @@ export function createGitHubSearchClient(): GitHubSearchClient {
 
         if (!stdout.trim()) return [];
 
-        const items = stdout.trim().split("\n").map((line) => {
-          const raw = JSON.parse(line) as Record<string, unknown>;
-          return {
-            number: raw["number"] as number,
-            title: raw["title"] as string,
-            body: (raw["body"] as string | null) ?? null,
-            head: { ref: "", sha: "" },
-            base: { ref: "", sha: "" },
-            user: raw["user"] as GitHubIssue["user"],
-            state: raw["state"] as "open" | "closed",
-            draft: false,
-          } satisfies GitHubPullRequest;
-        });
+        const items = stdout.trim().split("\n").filter(Boolean).map((line) => GitHubPullRequestSchema.parse(JSON.parse(line)));
 
         return items.map((pullRequest) => ({
           pullRequest,

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import type { GitHubSearchClient } from "./github-search-client.js";
 import type { GitHubIssue, GitHubPullRequest, GitHubRepository } from "@crewline/shared";
+import { GitHubIssueSchema, GitHubPullRequestSchema } from "@crewline/shared";
+import { ZodError } from "zod";
 
 /**
  * These tests verify the GitHubSearchClient interface contract.
@@ -82,5 +84,64 @@ describe("GitHubSearchClient", () => {
 
     expect(issues).toHaveLength(0);
     expect(pullRequests).toHaveLength(0);
+  });
+});
+
+describe("Zod validation of GitHub API responses", () => {
+  it("rejects an issue with missing number field", () => {
+    const malformed = {
+      title: "Bug",
+      body: "broken",
+      labels: [],
+      user: { login: "u", id: 1, avatar_url: "" },
+      state: "open",
+    };
+
+    expect(() => GitHubIssueSchema.parse(malformed)).toThrow(ZodError);
+  });
+
+  it("rejects a PR with missing number field", () => {
+    const malformed = {
+      title: "Fix",
+      body: null,
+      user: { login: "u", id: 1, avatar_url: "" },
+      state: "open",
+    };
+
+    expect(() => GitHubPullRequestSchema.parse(malformed)).toThrow(ZodError);
+  });
+
+  it("parses an issue with extra fields from GitHub API", () => {
+    const apiResponse = {
+      number: 5,
+      title: "Bug",
+      body: "broken",
+      labels: [{ id: 1, name: "bug", color: "d73a4a", default: false, description: "" }],
+      user: { login: "u", id: 1, avatar_url: "", node_id: "MDQ6VXNlcjE=" },
+      state: "open",
+      node_id: "MDU6SXNzdWUx",
+      html_url: "https://github.com/owner/repo/issues/5",
+      pull_request: null,
+    };
+
+    const result = GitHubIssueSchema.parse(apiResponse);
+    expect(result.number).toBe(5);
+  });
+
+  it("defaults head/base for PR parsed from Issues API (no branch details)", () => {
+    const issuesApiPullRequest = {
+      number: 42,
+      title: "Fix",
+      body: null,
+      user: { login: "u", id: 1, avatar_url: "" },
+      state: "open",
+      draft: false,
+      node_id: "MDExOlB1bGxSZXF1ZXN0MQ==",
+    };
+
+    const result = GitHubPullRequestSchema.parse(issuesApiPullRequest);
+    expect(result.number).toBe(42);
+    expect(result.head).toEqual({ ref: "", sha: "" });
+    expect(result.base).toEqual({ ref: "", sha: "" });
   });
 });

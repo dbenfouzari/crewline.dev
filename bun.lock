@@ -31,6 +31,9 @@
     "packages/shared": {
       "name": "@crewline/shared",
       "version": "0.0.1",
+      "dependencies": {
+        "zod": "^3.23",
+      },
     },
     "packages/worker": {
       "name": "@crewline/worker",

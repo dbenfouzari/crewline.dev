@@ -8,6 +8,15 @@ import type { CrewlineConfig, NewJob } from "@crewline/shared";
 import { AGENT_PRIORITY, DEFAULT_PRIORITY, buildPipelineLabels } from "@crewline/shared";
 import type { GitHubSearchClient } from "./github-search-client.js";
 
+/**
+ * Defense-in-depth guard: validates that a target number is a finite positive integer
+ * before enqueuing. Even if the Zod parse in the search client is bypassed,
+ * invalid jobs must not enter the queue.
+ */
+function isValidTargetNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
 interface RecoverPendingWorkOptions {
   config: CrewlineConfig;
   queue: {
@@ -54,6 +63,11 @@ export async function recoverPendingWork(
         if (pipelineLabel.entityType === "issue") {
           const results = await githubClient.findOpenIssuesWithLabel(repo, pipelineLabel.label);
           for (const result of results) {
+            if (!isValidTargetNumber(result.issue.number)) {
+              console.warn(`[recovery] Skipping issue with invalid target number in ${repo}: ${String(result.issue.number)}`);
+              continue;
+            }
+
             const candidateKey = `${repo}:${String(result.issue.number)}`;
             const priority = AGENT_PRIORITY[pipelineLabel.agentKey] ?? DEFAULT_PRIORITY;
             const existing = candidates.get(candidateKey);
@@ -80,6 +94,11 @@ export async function recoverPendingWork(
         } else {
           const results = await githubClient.findOpenPullRequestsWithLabel(repo, pipelineLabel.label);
           for (const result of results) {
+            if (!isValidTargetNumber(result.pullRequest.number)) {
+              console.warn(`[recovery] Skipping PR with invalid target number in ${repo}: ${String(result.pullRequest.number)}`);
+              continue;
+            }
+
             const candidateKey = `${repo}:${String(result.pullRequest.number)}`;
             const priority = AGENT_PRIORITY[pipelineLabel.agentKey] ?? DEFAULT_PRIORITY;
             const existing = candidates.get(candidateKey);
