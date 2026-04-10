@@ -10,10 +10,21 @@
 
   let indicator = $derived(statusIndicator(stage.status));
 
+  /** Reactive clock that only ticks while a stage is running. */
+  let now = $state(Date.now());
+
+  $effect(() => {
+    if (stage.status !== "running") return;
+    const interval = setInterval(() => {
+      now = Date.now();
+    }, 1000);
+    return () => clearInterval(interval);
+  });
+
   let elapsed = $derived.by(() => {
     if (stage.status === "running" && stage.startedAt) {
       const seconds = Math.floor(
-        (Date.now() - new Date(stage.startedAt).getTime()) / 1000,
+        (now - new Date(stage.startedAt).getTime()) / 1000,
       );
       const minutes = Math.floor(seconds / 60);
       if (minutes > 0) {
