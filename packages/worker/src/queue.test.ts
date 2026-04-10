@@ -60,6 +60,34 @@ describe("JobQueue (BullMQ)", () => {
     await queue.close();
   });
 
+  it("getActiveJobKeys returns keys of waiting jobs", async () => {
+    if (!redisAvailable) {
+      console.log("⏭ Skipped: Redis not available");
+      return;
+    }
+
+    const queue = createJobQueue({ host: "localhost", port: 6379 });
+    await queue.enqueue({
+      agentName: "dev",
+      payload: '{"action":"labeled"}',
+      repository: "user/repo",
+      targetNumber: 1,
+    });
+    await queue.enqueue({
+      agentName: "architect",
+      payload: '{"action":"labeled"}',
+      repository: "user/repo",
+      targetNumber: 2,
+    });
+
+    const keys = await queue.getActiveJobKeys();
+
+    expect(keys.has("dev:user/repo:1")).toBe(true);
+    expect(keys.has("architect:user/repo:2")).toBe(true);
+    expect(keys.size).toBe(2);
+    await queue.close();
+  });
+
   it("worker processes enqueued jobs", async () => {
     if (!redisAvailable) {
       console.log("⏭ Skipped: Redis not available");

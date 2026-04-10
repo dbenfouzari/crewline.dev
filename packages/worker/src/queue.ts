@@ -49,6 +49,20 @@ export function createJobQueue(connection: ConnectionOptions) {
       return job.id!;
     },
 
+    /**
+     * Returns the set of job keys currently waiting or active in the queue.
+     * Each key is formatted as `agentName:repository:targetNumber`.
+     * Used for deduplication during recovery.
+     */
+    async getActiveJobKeys(): Promise<Set<string>> {
+      const jobs = await queue.getJobs(["waiting", "active", "prioritized"]);
+      const keys = new Set<string>();
+      for (const job of jobs) {
+        keys.add(`${job.data.agentName}:${job.data.repository}:${String(job.data.targetNumber)}`);
+      }
+      return keys;
+    },
+
     async close() {
       await queue.close();
     },
