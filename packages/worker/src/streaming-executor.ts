@@ -85,7 +85,7 @@ export function parseLine(line: string): Record<string, unknown> | null {
  * @param payload - The raw event payload
  * @returns The payload, possibly with large string values truncated
  */
-function truncatePayload(payload: Record<string, unknown>): Record<string, unknown> {
+export function truncatePayload(payload: Record<string, unknown>): Record<string, unknown> {
   const json = JSON.stringify(payload);
   if (json.length <= MAX_PAYLOAD_SIZE) return payload;
 
@@ -93,27 +93,34 @@ function truncatePayload(payload: Record<string, unknown>): Record<string, unkno
 }
 
 /**
- * Executes an agent using Claude CLI with streaming JSON output.
- * Emits ConversationEvents in real-time via the onEvent callback.
- * Assembles a backward-compatible ExecutorResult from streamed events.
- *
- * @param options - Streaming executor options including jobId and onEvent callback
- * @returns The assembled ExecutorResult (exitCode, stdout, stderr)
+ * Result of processing an NDJSON stream of conversation events.
  */
-export async function executeAgentStreaming(
-  options: StreamingExecutorOptions,
-): Promise<ExecutorResult> {
-  const args = buildStreamingClaudeArgs(options);
-  const proc = Bun.spawn(["claude", ...args], {
-    cwd: options.workDir,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+export interface StreamProcessorResult {
+  /** Raw NDJSON lines that were successfully parsed */
+  stdoutChunks: string[];
+  /** All emitted conversation events in order */
+  events: ConversationEvent[];
+}
 
+/**
+ * Processes a ReadableStream of NDJSON bytes, parsing each line and emitting
+ * ConversationEvents in real-time via the onEvent callback.
+ *
+ * @param stream - A ReadableStream of Uint8Array chunks (e.g., from stdout)
+ * @param jobId - The job ID to associate events with
+ * @param onEvent - Callback invoked for each parsed conversation event
+ * @returns The accumulated stdout chunks and events
+ */
+export async function processNdjsonStream(
+  stream: ReadableStream<Uint8Array>,
+  jobId: string,
+  onEvent: (event: ConversationEvent) => void,
+): Promise<StreamProcessorResult> {
   let sequenceNumber = 0;
   const stdoutChunks: string[] = [];
+  const events: ConversationEvent[] = [];
 
-  const reader = proc.stdout.getReader();
+  const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
 
@@ -136,14 +143,15 @@ export async function executeAgentStreaming(
 
         const event: ConversationEvent = {
           id: crypto.randomUUID(),
-          jobId: options.jobId,
+          jobId,
           type: eventType,
           payload: truncatePayload(parsed),
           sequenceNumber: sequenceNumber++,
           timestamp: new Date().toISOString(),
         };
 
-        options.onEvent(event);
+        events.push(event);
+        onEvent(event);
       }
     }
 
@@ -155,18 +163,46 @@ export async function executeAgentStreaming(
         const eventType = classifyEvent(parsed);
         const event: ConversationEvent = {
           id: crypto.randomUUID(),
-          jobId: options.jobId,
+          jobId,
           type: eventType,
           payload: truncatePayload(parsed),
           sequenceNumber: sequenceNumber++,
           timestamp: new Date().toISOString(),
         };
-        options.onEvent(event);
+        events.push(event);
+        onEvent(event);
       }
     }
   } finally {
     reader.releaseLock();
   }
+
+  return { stdoutChunks, events };
+}
+
+/**
+ * Executes an agent using Claude CLI with streaming JSON output.
+ * Emits ConversationEvents in real-time via the onEvent callback.
+ * Assembles a backward-compatible ExecutorResult from streamed events.
+ *
+ * @param options - Streaming executor options including jobId and onEvent callback
+ * @returns The assembled ExecutorResult (exitCode, stdout, stderr)
+ */
+export async function executeAgentStreaming(
+  options: StreamingExecutorOptions,
+): Promise<ExecutorResult> {
+  const args = buildStreamingClaudeArgs(options);
+  const proc = Bun.spawn(["claude", ...args], {
+    cwd: options.workDir,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const { stdoutChunks } = await processNdjsonStream(
+    proc.stdout,
+    options.jobId,
+    options.onEvent,
+  );
 
   const stderr = await new Response(proc.stderr).text();
   const exitCode = await proc.exited;

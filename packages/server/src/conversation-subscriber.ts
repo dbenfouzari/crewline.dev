@@ -19,6 +19,26 @@ export interface ConversationSubscriber {
 }
 
 /**
+ * Parses a serialized ConversationEvent from a Redis pub/sub message.
+ * Returns null if the message is malformed or not a valid object.
+ *
+ * @param message - The raw string message from Redis
+ * @returns The parsed ConversationEvent, or null if unparseable
+ */
+export function parseConversationMessage(message: string): ConversationEvent | null {
+  try {
+    const parsed: unknown = JSON.parse(message);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as ConversationEvent;
+  } catch {
+    console.error("[conversation-subscriber] Failed to parse message:", message);
+    return null;
+  }
+}
+
+/**
  * Creates a ConversationSubscriber that listens for events via Redis pub/sub.
  *
  * @param connection - Redis connection options (from BullMQ config)
@@ -40,13 +60,11 @@ export function createConversationSubscriber(
   });
 
   redis.on("pmessage", (_pattern: string, _channel: string, message: string) => {
-    try {
-      const event = JSON.parse(message) as ConversationEvent;
-      for (const callback of callbacks) {
-        callback(event);
-      }
-    } catch (error: unknown) {
-      console.error("[conversation-subscriber] Failed to parse message:", error);
+    const event = parseConversationMessage(message);
+    if (!event) return;
+
+    for (const callback of callbacks) {
+      callback(event);
     }
   });
 
