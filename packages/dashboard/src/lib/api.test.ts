@@ -108,7 +108,7 @@ describe("fetchJobs", () => {
   it("throws on invalid response shape (Zod validation)", async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve(
-        new Response(JSON.stringify([{ invalid: true }]), { status: 200 }),
+        new Response(JSON.stringify({ jobs: [{ invalid: true }] }), { status: 200 }),
       ),
     );
 
