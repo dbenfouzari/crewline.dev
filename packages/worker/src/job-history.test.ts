@@ -6,7 +6,8 @@ describe("JobHistory", () => {
   let history: JobHistory;
 
   beforeEach(() => {
-    history = new JobHistory(":memory:");
+    const database = JobHistory.openDatabase(":memory:");
+    history = new JobHistory(database);
   });
 
   afterEach(() => {

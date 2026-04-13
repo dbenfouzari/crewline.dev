@@ -47,9 +47,8 @@ function rowToJob(row: Record<string, unknown>): Job {
 export class JobHistory {
   private db: Database;
 
-  constructor(path: string) {
-    this.db = new Database(path);
-    this.db.run("PRAGMA journal_mode = WAL");
+  constructor(database: Database) {
+    this.db = database;
     this.db.run(CREATE_TABLE);
     this.migrate();
   }
@@ -61,6 +60,19 @@ export class JobHistory {
     if (!hasIssueNumber) {
       this.db.run(MIGRATE_ADD_ISSUE_NUMBER);
     }
+  }
+
+  /**
+   * Opens a SQLite database at the given path with WAL mode enabled.
+   * Use this to create a shared Database instance for JobHistory and ConversationHistory.
+   *
+   * @param path - File path for the database, or ":memory:" for in-memory
+   * @returns A configured Database instance
+   */
+  static openDatabase(path: string): Database {
+    const database = new Database(path);
+    database.run("PRAGMA journal_mode = WAL");
+    return database;
   }
 
   record(job: Job): void {
