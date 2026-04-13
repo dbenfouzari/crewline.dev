@@ -48,7 +48,7 @@ describe("fetchJobs", () => {
   it("calls /api/jobs without query parameter when no status provided", async () => {
     const mockFetch = mock(() =>
       Promise.resolve(
-        new Response(JSON.stringify([createMockJobSummary()]), {
+        new Response(JSON.stringify({ jobs: [createMockJobSummary()] }), {
           status: 200,
         }),
       ),
@@ -64,7 +64,7 @@ describe("fetchJobs", () => {
   it("appends status query parameter when status provided", async () => {
     const mockFetch = mock(() =>
       Promise.resolve(
-        new Response(JSON.stringify([createMockJobSummary({ status: "running" })]), {
+        new Response(JSON.stringify({ jobs: [createMockJobSummary({ status: "running" })] }), {
           status: 200,
         }),
       ),
@@ -83,7 +83,7 @@ describe("fetchJobs", () => {
       createMockJobSummary({ id: "job-2", agentName: "architect" }),
     ];
     globalThis.fetch = mock(() =>
-      Promise.resolve(new Response(JSON.stringify(jobs), { status: 200 })),
+      Promise.resolve(new Response(JSON.stringify({ jobs }), { status: 200 })),
     );
 
     const { fetchJobs } = await import("./api.js");

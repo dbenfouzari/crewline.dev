@@ -217,6 +217,9 @@ describe("Dashboard Routes", () => {
         job: toJobSummary(job),
       };
 
+      // Skip the initial ": connected" comment
+      await reader.read();
+
       dashboardRoutes.publish(event);
 
       const { value } = await reader.read();
@@ -236,6 +239,9 @@ describe("Dashboard Routes", () => {
 
       const job1 = makeJob({ agentName: "requirementsGatherer", status: "completed" });
       const job2 = makeJob({ agentName: "dev", status: "failed" });
+
+      // Skip the initial ": connected" comment
+      await reader.read();
 
       dashboardRoutes.publish({ type: "job:completed", job: toJobSummary(job1) });
       dashboardRoutes.publish({ type: "job:failed", job: toJobSummary(job2) });
