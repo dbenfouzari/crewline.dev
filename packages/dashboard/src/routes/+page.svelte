@@ -1,11 +1,53 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import type { PipelineState, AgentComment } from "@crewline/shared";
   import IssueCard from "$lib/components/IssueCard.svelte";
+  import PipelineDetailDrawer from "$lib/components/PipelineDetailDrawer.svelte";
   import { loadJobs } from "$lib/stores/jobs.js";
   import { pipelinesByIssue } from "$lib/stores/pipelines.js";
+  import { drawerStore, closeDrawer } from "$lib/stores/drawer.js";
+  import { fetchPipelineComments, fetchPipeline } from "$lib/api.js";
 
   onMount(() => {
     void loadJobs();
+  });
+
+  let drawerPipeline = $state<PipelineState | null>(null);
+  let drawerComments = $state<AgentComment[]>([]);
+  let drawerLoading = $state(false);
+
+  /** Fetch pipeline + comments when the drawer opens. */
+  $effect(() => {
+    const state = $drawerStore;
+    if (state.open && state.issueNumber !== null) {
+      const issueNumber = state.issueNumber;
+      drawerLoading = true;
+
+      // Use the already-computed pipeline from the store as initial data
+      const localPipeline = $pipelinesByIssue.get(issueNumber);
+      if (localPipeline) {
+        drawerPipeline = localPipeline;
+      }
+
+      // Fetch fresh pipeline (with result/exitCode) and comments in parallel
+      Promise.all([
+        fetchPipeline(issueNumber),
+        fetchPipelineComments(issueNumber),
+      ])
+        .then(([pipeline, comments]) => {
+          drawerPipeline = pipeline;
+          drawerComments = comments;
+        })
+        .catch((error) => {
+          console.error("[drawer] Failed to load pipeline details:", error);
+        })
+        .finally(() => {
+          drawerLoading = false;
+        });
+    } else {
+      drawerPipeline = null;
+      drawerComments = [];
+    }
   });
 </script>
 
@@ -23,6 +65,15 @@
     </div>
   {/if}
 </div>
+
+{#if $drawerStore.open && drawerPipeline}
+  <PipelineDetailDrawer
+    pipeline={drawerPipeline}
+    comments={drawerComments}
+    expandedAgent={$drawerStore.expandedAgent}
+    onclose={closeDrawer}
+  />
+{/if}
 
 <style>
   .pipeline-list {

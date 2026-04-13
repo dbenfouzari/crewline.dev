@@ -2,6 +2,7 @@
   import type { PipelineState } from "@crewline/shared";
   import { AGENT_PRIORITY, DEFAULT_PRIORITY } from "@crewline/shared";
   import StageChip from "./StageChip.svelte";
+  import { openDrawer } from "../stores/drawer.js";
 
   interface Props {
     issueNumber: number;
@@ -9,6 +10,10 @@
   }
 
   let { issueNumber, pipeline }: Props = $props();
+
+  function handleHeaderClick(): void {
+    openDrawer(issueNumber);
+  }
 
   /** Sort stages by pipeline order (requirementsGatherer first → techLead last). */
   let sortedStages = $derived(
@@ -29,7 +34,8 @@
 </script>
 
 <article class="issue-card">
-  <header>
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <header onclick={handleHeaderClick} class="clickable">
     <h2>
       <span class="issue-number">#{issueNumber}</span>
       {#if pipeline.title}
@@ -47,7 +53,7 @@
   </header>
   <div class="stages">
     {#each sortedStages as stage (stage.jobId)}
-      <StageChip {stage} />
+      <StageChip {stage} {issueNumber} />
     {/each}
   </div>
 </article>
@@ -65,6 +71,14 @@
     align-items: baseline;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
+  }
+
+  .clickable {
+    cursor: pointer;
+  }
+
+  .clickable:hover .issue-number {
+    text-decoration: underline;
   }
 
   h2 {

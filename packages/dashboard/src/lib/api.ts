@@ -3,7 +3,7 @@
  * All requests go through the Vite dev proxy (/api → server).
  */
 
-import type { JobStatus, JobSummary, PipelineState } from "@crewline/shared";
+import type { JobStatus, JobSummary, PipelineState, AgentComment } from "@crewline/shared";
 import { z } from "zod";
 
 /**
@@ -34,6 +34,8 @@ const PipelineStageSnapshotSchema = z.object({
   createdAt: z.string(),
   startedAt: z.string().nullable(),
   completedAt: z.string().nullable(),
+  result: z.string().nullable(),
+  exitCode: z.number().nullable(),
 });
 
 /**
@@ -77,6 +79,35 @@ export async function fetchPipeline(
   }
   const data: unknown = await response.json();
   return PipelineStateSchema.parse(data);
+}
+
+/**
+ * Zod schema for validating AgentComment responses at the API boundary.
+ */
+const AgentCommentSchema = z.object({
+  agentName: z.string(),
+  body: z.string(),
+  url: z.string(),
+  createdAt: z.string(),
+});
+
+/**
+ * Fetches agent comments for a specific issue's pipeline.
+ *
+ * @param issueNumber - The GitHub issue number
+ * @returns Array of agent comments mapped from GitHub issue comments
+ */
+export async function fetchPipelineComments(
+  issueNumber: number,
+): Promise<AgentComment[]> {
+  const response = await fetch(`/api/pipeline/${issueNumber}/comments`);
+  if (!response.ok) {
+    if (response.status === 404) return [];
+    throw new Error(`Failed to fetch pipeline comments: ${response.status}`);
+  }
+  const data: unknown = await response.json();
+  const envelope = z.object({ comments: z.array(AgentCommentSchema) }).parse(data);
+  return envelope.comments;
 }
 
 /**

@@ -1,12 +1,19 @@
 <script lang="ts">
   import type { PipelineStageSnapshot } from "@crewline/shared";
   import { statusIndicator, formatAgentName } from "../status.js";
+  import { openDrawer } from "../stores/drawer.js";
 
   interface Props {
     stage: PipelineStageSnapshot;
+    issueNumber: number;
   }
 
-  let { stage }: Props = $props();
+  let { stage, issueNumber }: Props = $props();
+
+  function handleClick(event: MouseEvent): void {
+    event.stopPropagation();
+    openDrawer(issueNumber, stage.agentName);
+  }
 
   let indicator = $derived(statusIndicator(stage.status));
 
@@ -52,7 +59,8 @@
   });
 </script>
 
-<div class="stage-chip {indicator.cssClass}">
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<div class="stage-chip {indicator.cssClass}" onclick={handleClick}>
   <span class="icon">{indicator.icon}</span>
   <span class="name">{formatAgentName(stage.agentName)}</span>
   {#if elapsed}
@@ -71,6 +79,7 @@
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     white-space: nowrap;
+    cursor: pointer;
   }
 
   .icon {

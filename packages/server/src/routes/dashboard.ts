@@ -12,12 +12,15 @@ import {
   aggregatePipelineState,
 } from "@crewline/shared";
 import type { DashboardSSEEvent } from "@crewline/shared";
+import type { GitHubCommentClient } from "../github-comment-client.js";
 
 export interface DashboardDependencies {
   /** Read-only job history instance (must not call record()) */
   jobHistory: JobHistory;
   /** Read-only conversation history for replay (optional — not available until wired) */
   conversationHistory?: ConversationHistory;
+  /** GitHub comment client for fetching issue comments (optional — drawer won't work without it) */
+  githubCommentClient?: GitHubCommentClient;
 }
 
 /** Subscriber callback for SSE events (widened to DashboardSSEEvent union) */
@@ -66,6 +69,32 @@ export function createDashboardRoutes(deps: DashboardDependencies) {
     const jobs = deps.jobHistory.listByIssueNumber(issueNumber);
     const pipelineState = aggregatePipelineState(issueNumber, jobs);
     return c.json(pipelineState);
+  });
+
+  app.get("/pipeline/:issueNumber/comments", async (c) => {
+    if (!deps.githubCommentClient) {
+      return c.json({ error: "GitHub comment client not available" }, 503);
+    }
+
+    const issueNumberParam = c.req.param("issueNumber");
+    const issueNumber = Number(issueNumberParam);
+
+    if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+      return c.json({ error: "Invalid issue number" }, 400);
+    }
+
+    const jobs = deps.jobHistory.listByIssueNumber(issueNumber);
+    if (jobs.length === 0) {
+      return c.json({ error: "No jobs found for this issue" }, 404);
+    }
+
+    const repository = jobs[0]!.repository;
+    const comments = await deps.githubCommentClient.fetchIssueComments(
+      repository,
+      issueNumber,
+    );
+
+    return c.json({ comments });
   });
 
   app.get("/jobs/:jobId/conversation", (c) => {

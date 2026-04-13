@@ -40,6 +40,10 @@ export interface PipelineStageSnapshot {
   startedAt: string | null;
   /** When the job completed or failed */
   completedAt: string | null;
+  /** Agent output / error message from the completed or failed job */
+  result: string | null;
+  /** Exit code from Claude CLI */
+  exitCode: number | null;
 }
 
 /**
@@ -106,6 +110,8 @@ export function aggregatePipelineState(
     createdAt: job.createdAt,
     startedAt: job.startedAt,
     completedAt: job.completedAt,
+    result: job.result,
+    exitCode: job.exitCode,
   }));
 
   const mostRecentJob = jobs.reduce<Job | null>((latest, job) => {
