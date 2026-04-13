@@ -1,16 +1,18 @@
 /**
  * Server entry point.
  * Loads config, starts Hono, routes webhook events to BullMQ.
+ * Subscribes to conversation events via Redis pub/sub and relays them to SSE clients.
  */
 
 import { createApp } from "./app.js";
 import { matchAgents } from "./router.js";
-import { createJobQueue, JobHistory, QUEUE_NAME } from "@crewline/worker";
+import { createJobQueue, JobHistory, ConversationHistory, QUEUE_NAME } from "@crewline/worker";
 import type { CrewlineConfig, GitHubEventName, JobSummary, JobStatus } from "@crewline/shared";
 import { parseLinkedIssueNumbers } from "@crewline/shared";
 import { recoverPendingWork } from "./recovery.js";
 import { createGitHubSearchClient } from "./github-search-client.js";
 import { createDashboardRoutes } from "./routes/dashboard.js";
+import { createConversationSubscriber } from "./conversation-subscriber.js";
 import { QueueEvents } from "bullmq";
 import type { Job as BullJob } from "bullmq";
 
@@ -28,8 +30,17 @@ export async function startServer(options: StartServerOptions) {
   const redisConnection = { host: new URL(redisUrl).hostname, port: Number(new URL(redisUrl).port) || 6379 };
   const queue = createJobQueue(redisConnection);
 
-  const jobHistory = new JobHistory(databasePath);
-  const dashboardRoutes = createDashboardRoutes({ jobHistory });
+  const database = JobHistory.openDatabase(databasePath);
+  const jobHistory = new JobHistory(database);
+  const conversationHistory = new ConversationHistory(database);
+
+  const dashboardRoutes = createDashboardRoutes({ jobHistory, conversationHistory });
+
+  // Subscribe to conversation events from worker via Redis pub/sub
+  const conversationSubscriber = createConversationSubscriber(redisConnection);
+  conversationSubscriber.onEvent((event) => {
+    dashboardRoutes.publish({ type: "conversation:event", event });
+  });
 
   const queueEvents = new QueueEvents(QUEUE_NAME, { connection: redisConnection });
 
@@ -130,7 +141,7 @@ export async function startServer(options: StartServerOptions) {
     console.error("[server] Recovery failed (non-fatal):", error);
   });
 
-  return { server, queue, jobHistory, queueEvents };
+  return { server, queue, jobHistory, conversationHistory, queueEvents, conversationSubscriber };
 }
 
 /**
@@ -192,3 +203,5 @@ export { createGitHubSearchClient } from "./github-search-client.js";
 export type { GitHubSearchClient, IssueSearchResult, PullRequestSearchResult } from "./github-search-client.js";
 export { createDashboardRoutes } from "./routes/dashboard.js";
 export type { DashboardDependencies, SSESubscriber } from "./routes/dashboard.js";
+export { createConversationSubscriber } from "./conversation-subscriber.js";
+export type { ConversationSubscriber } from "./conversation-subscriber.js";

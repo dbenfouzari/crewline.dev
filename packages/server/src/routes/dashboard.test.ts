@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Hono } from "hono";
-import { JobHistory } from "@crewline/worker";
-import type { Job, JobLifecycleEvent } from "@crewline/shared";
+import { Database } from "bun:sqlite";
+import { JobHistory, ConversationHistory } from "@crewline/worker";
+import type { Job, JobLifecycleEvent, ConversationEvent } from "@crewline/shared";
 import { toJobSummary } from "@crewline/shared";
 import { createDashboardRoutes } from "./dashboard.js";
 
@@ -23,20 +24,36 @@ function makeJob(overrides: Partial<Job> = {}): Job {
   };
 }
 
+function makeConversationEvent(overrides: Partial<ConversationEvent> = {}): ConversationEvent {
+  return {
+    id: crypto.randomUUID(),
+    jobId: "job-1",
+    type: "assistant:text",
+    payload: { type: "assistant", message: { content: [{ type: "text", text: "hello" }] } },
+    sequenceNumber: 0,
+    timestamp: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
 describe("Dashboard Routes", () => {
+  let database: Database;
   let history: JobHistory;
+  let conversationHistory: ConversationHistory;
   let app: Hono;
   let dashboardRoutes: ReturnType<typeof createDashboardRoutes>;
 
   beforeEach(() => {
-    history = new JobHistory(":memory:");
-    dashboardRoutes = createDashboardRoutes({ jobHistory: history });
+    database = JobHistory.openDatabase(":memory:");
+    history = new JobHistory(database);
+    conversationHistory = new ConversationHistory(database);
+    dashboardRoutes = createDashboardRoutes({ jobHistory: history, conversationHistory });
     app = new Hono();
     app.route("/", dashboardRoutes);
   });
 
   afterEach(() => {
-    history.close();
+    database.close();
   });
 
   describe("GET /jobs", () => {
@@ -249,6 +266,40 @@ describe("Dashboard Routes", () => {
     });
   });
 
+  describe("GET /jobs/:jobId/conversation", () => {
+    it("returns conversation events for a job ordered by sequence number", async () => {
+      const event1 = makeConversationEvent({ sequenceNumber: 0 });
+      const event2 = makeConversationEvent({ sequenceNumber: 1, type: "assistant:tool_use" });
+      conversationHistory.record(event1);
+      conversationHistory.record(event2);
+
+      const response = await app.request("/jobs/job-1/conversation");
+      expect(response.status).toBe(200);
+
+      const body = (await response.json()) as { events: ConversationEvent[] };
+      expect(body.events).toHaveLength(2);
+      expect(body.events[0]!.sequenceNumber).toBe(0);
+      expect(body.events[1]!.sequenceNumber).toBe(1);
+    });
+
+    it("returns empty events array for unknown job ID", async () => {
+      const response = await app.request("/jobs/nonexistent/conversation");
+      expect(response.status).toBe(200);
+
+      const body = (await response.json()) as { events: ConversationEvent[] };
+      expect(body.events).toHaveLength(0);
+    });
+
+    it("returns 503 when conversation history is not available", async () => {
+      const routesWithoutConversation = createDashboardRoutes({ jobHistory: history });
+      const appWithout = new Hono();
+      appWithout.route("/", routesWithoutConversation);
+
+      const response = await appWithout.request("/jobs/job-1/conversation");
+      expect(response.status).toBe(503);
+    });
+  });
+
   describe("GET /events (SSE)", () => {
     it("returns a streaming response with correct content type", async () => {
       const response = await app.request("/events");
@@ -258,10 +309,13 @@ describe("Dashboard Routes", () => {
       expect(response.headers.get("connection")).toBe("keep-alive");
     });
 
-    it("delivers published events to connected SSE clients", async () => {
+    it("delivers published job lifecycle events to connected SSE clients", async () => {
       const response = await app.request("/events");
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
+
+      // Skip initial ": connected" comment
+      await reader.read();
 
       const job = makeJob({ agentName: "architect", status: "completed" });
       const event: JobLifecycleEvent = {
@@ -284,10 +338,36 @@ describe("Dashboard Routes", () => {
       reader.cancel();
     });
 
+    it("delivers conversation events to connected SSE clients", async () => {
+      const response = await app.request("/events");
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+
+      // Skip initial ": connected" comment
+      await reader.read();
+
+      const conversationEvent = makeConversationEvent();
+      dashboardRoutes.publish({
+        type: "conversation:event",
+        event: conversationEvent,
+      });
+
+      const { value } = await reader.read();
+      const text = decoder.decode(value);
+
+      expect(text).toContain("event: conversation:event");
+      expect(text).toContain(`"jobId":"job-1"`);
+
+      reader.cancel();
+    });
+
     it("delivers multiple events in sequence to a connected client", async () => {
       const response = await app.request("/events");
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
+
+      // Skip initial ": connected" comment
+      await reader.read();
 
       const job1 = makeJob({ agentName: "requirementsGatherer", status: "completed" });
       const job2 = makeJob({ agentName: "dev", status: "failed" });

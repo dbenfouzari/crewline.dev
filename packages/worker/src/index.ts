@@ -1,11 +1,15 @@
 /**
  * Worker entry point.
- * Listens to BullMQ queue, processes jobs by executing Claude CLI.
+ * Listens to BullMQ queue, processes jobs by executing Claude CLI
+ * with streaming output, persisting conversation events, and publishing
+ * them via Redis pub/sub for real-time dashboard consumption.
  */
 
 import { createJobWorker, type QueueJobData } from "./queue.js";
 import { JobHistory } from "./job-history.js";
-import { executeAgent } from "./executor.js";
+import { ConversationHistory } from "./conversation-history.js";
+import { executeAgentStreaming } from "./streaming-executor.js";
+import { createConversationPublisher } from "./conversation-publisher.js";
 import type { CrewlineConfig, Job } from "@crewline/shared";
 
 export interface StartWorkerOptions {
@@ -25,9 +29,14 @@ export async function startWorker(options: StartWorkerOptions) {
     concurrency = 1,
   } = options;
 
-  const history = new JobHistory(databasePath);
+  const database = JobHistory.openDatabase(databasePath);
+  const history = new JobHistory(database);
+  const conversationHistory = new ConversationHistory(database);
+
   const url = new URL(redisUrl);
   const connection = { host: url.hostname, port: Number(url.port) || 6379 };
+
+  const publisher = createConversationPublisher(connection);
 
   const worker = createJobWorker(
     connection,
@@ -68,8 +77,17 @@ export async function startWorker(options: StartWorkerOptions) {
       };
       history.record(job);
 
-      // Execute Claude CLI
-      const result = await executeAgent({ prompt: fullPrompt, workDir });
+      // Execute Claude CLI with streaming
+      const result = await executeAgentStreaming({
+        prompt: fullPrompt,
+        workDir,
+        jobId: job.id,
+        onEvent: (event) => {
+          // Persist first (SQLite is source of truth), then publish (best-effort)
+          conversationHistory.record(event);
+          publisher.publish(event);
+        },
+      });
 
       // Record completion
       const completedJob: Job = {
@@ -98,7 +116,7 @@ export async function startWorker(options: StartWorkerOptions) {
   console.log(`[worker] Crewline worker started (concurrency: ${String(concurrency)})`);
   console.log(`[worker] Agents: ${Object.keys(config.agents).join(", ")}`);
 
-  return { worker, history };
+  return { worker, history, conversationHistory, publisher };
 }
 
 function buildIssueContext(payload: Record<string, unknown>): string {
@@ -126,5 +144,10 @@ function buildIssueContext(payload: Record<string, unknown>): string {
 export { createJobQueue, createJobWorker, QUEUE_NAME } from "./queue.js";
 export type { QueueJobData, JobProcessor } from "./queue.js";
 export { JobHistory } from "./job-history.js";
+export { ConversationHistory } from "./conversation-history.js";
 export { executeAgent, buildClaudeArgs } from "./executor.js";
+export { executeAgentStreaming, buildStreamingClaudeArgs } from "./streaming-executor.js";
 export type { ExecutorOptions, ExecutorResult } from "./executor.js";
+export type { StreamingExecutorOptions } from "./streaming-executor.js";
+export { createConversationPublisher, buildChannelName } from "./conversation-publisher.js";
+export type { ConversationPublisher } from "./conversation-publisher.js";
