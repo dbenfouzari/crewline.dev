@@ -17,6 +17,7 @@ import { createConversationSubscriber } from "./conversation-subscriber.js";
 import { QueueEvents } from "bullmq";
 import type { Job as BullJob } from "bullmq";
 import { extractTargetTitle } from "./extract-target-title.js";
+import Redis from "ioredis";
 
 export interface StartServerOptions {
   config: CrewlineConfig;
@@ -99,7 +100,28 @@ export async function startServer(options: StartServerOptions) {
   const app = createApp({
     webhookSecret: config.github.webhookSecret,
     dashboardRoutes,
-    healthDependencies: { startTime, redisConnection, database },
+    healthDependencies: {
+      startTime,
+      probeRedis: async () => {
+        const redis = new Redis({
+          host: redisConnection.host,
+          port: redisConnection.port,
+          maxRetriesPerRequest: 0,
+          retryStrategy: () => null,
+          lazyConnect: true,
+          connectTimeout: 2000,
+        });
+        try {
+          await redis.connect();
+          await redis.ping();
+        } finally {
+          redis.disconnect();
+        }
+      },
+      probeDatabase: () => {
+        database.exec("SELECT 1");
+      },
+    },
     onEvent: async ({ eventName, payload }) => {
       const repo = (payload["repository"] as { full_name?: string })?.full_name;
 

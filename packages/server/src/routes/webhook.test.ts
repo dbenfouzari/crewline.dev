@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { createApp } from "../app.js";
+import type { HealthCheckDependencies } from "../health.js";
+import type { HealthCheckResponse } from "@crewline/shared";
 
 const SECRET = "test-secret";
 
@@ -96,11 +98,57 @@ describe("POST /webhooks/github", () => {
 });
 
 describe("GET /health", () => {
-  it("returns 200 with status ok", async () => {
+  it("returns 200 with status ok when healthDependencies is not provided", async () => {
     const app = createApp({ webhookSecret: SECRET, onEvent: async () => {} });
     const res = await app.request("/health");
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ status: "ok" });
+  });
+
+  it("returns 200 with full health response when all dependencies are healthy", async () => {
+    const healthDependencies: HealthCheckDependencies = {
+      startTime: Date.now() - 120_000,
+      probeRedis: () => Promise.resolve(),
+      probeDatabase: () => {},
+    };
+    const app = createApp({ webhookSecret: SECRET, onEvent: async () => {}, healthDependencies });
+    const res = await app.request("/health");
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as HealthCheckResponse;
+    expect(json.status).toBe("ok");
+    expect(json.redis).toBe("connected");
+    expect(json.database).toBe("connected");
+    expect(json.uptime).toBeGreaterThanOrEqual(119);
+  });
+
+  it("returns 503 with degraded status when Redis is down", async () => {
+    const healthDependencies: HealthCheckDependencies = {
+      startTime: Date.now() - 60_000,
+      probeRedis: () => Promise.reject(new Error("Connection refused")),
+      probeDatabase: () => {},
+    };
+    const app = createApp({ webhookSecret: SECRET, onEvent: async () => {}, healthDependencies });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+    const json = (await res.json()) as HealthCheckResponse;
+    expect(json.status).toBe("degraded");
+    expect(json.redis).toBe("disconnected");
+    expect(json.database).toBe("connected");
+  });
+
+  it("returns 503 with degraded status when database is down", async () => {
+    const healthDependencies: HealthCheckDependencies = {
+      startTime: Date.now() - 60_000,
+      probeRedis: () => Promise.resolve(),
+      probeDatabase: () => { throw new Error("Database locked"); },
+    };
+    const app = createApp({ webhookSecret: SECRET, onEvent: async () => {}, healthDependencies });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+    const json = (await res.json()) as HealthCheckResponse;
+    expect(json.status).toBe("degraded");
+    expect(json.redis).toBe("connected");
+    expect(json.database).toBe("disconnected");
   });
 });
