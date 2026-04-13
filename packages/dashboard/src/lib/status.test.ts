@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { statusIndicator, formatAgentName } from "./status.js";
+import { statusIndicator, formatAgentName, STALE_INDICATOR } from "./status.js";
+import { STALE_THRESHOLD_MS } from "./constants.js";
 
 describe("statusIndicator", () => {
   it("returns completed indicator for completed status", () => {
@@ -28,6 +29,30 @@ describe("statusIndicator", () => {
     expect(result.icon).toBe("\u274C");
     expect(result.label).toBe("Failed");
     expect(result.cssClass).toBe("status-failed");
+  });
+});
+
+describe("STALE_INDICATOR", () => {
+  it("has a warning icon", () => {
+    expect(STALE_INDICATOR.icon).toBe("⚠️");
+  });
+
+  it("has 'Stale' label", () => {
+    expect(STALE_INDICATOR.label).toBe("Stale");
+  });
+
+  it("has status-stale CSS class", () => {
+    expect(STALE_INDICATOR.cssClass).toBe("status-stale");
+  });
+});
+
+describe("STALE_THRESHOLD_MS", () => {
+  it("defaults to 60 minutes in milliseconds", () => {
+    expect(STALE_THRESHOLD_MS).toBe(60 * 60 * 1000);
+  });
+
+  it("is a positive number", () => {
+    expect(STALE_THRESHOLD_MS).toBeGreaterThan(0);
   });
 });
 
