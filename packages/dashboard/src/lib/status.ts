@@ -24,17 +24,6 @@ const STATUS_MAP: Record<JobStatus, StatusIndicator> = {
 };
 
 /**
- * Visual indicator for a running stage whose elapsed time exceeds the stale
- * threshold. Used as an override — not part of `STATUS_MAP` since "stale" is
- * a derived UI state, not a `JobStatus`.
- */
-export const STALE_INDICATOR: StatusIndicator = {
-  icon: "⚠️",
-  label: "Stale",
-  cssClass: "status-stale",
-};
-
-/**
  * Returns the visual indicator for a given job status.
  *
  * @param status - The job status to map

@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { PipelineStageSnapshot, AgentComment } from "@crewline/shared";
-  import { statusIndicator, formatAgentName, STALE_INDICATOR } from "../status.js";
-  import { STALE_THRESHOLD_MS } from "../constants.js";
+  import { statusIndicator, formatAgentName } from "../status.js";
   import MarkdownRenderer from "./MarkdownRenderer.svelte";
 
   interface Props {
@@ -13,36 +12,9 @@
 
   let { stage, comments, expanded, ontoggle }: Props = $props();
 
-  /** Reactive clock that only ticks while a stage is running. */
-  let now = $state(Date.now());
-
-  $effect(() => {
-    if (stage.status !== "running") return;
-    const interval = setInterval(() => {
-      now = Date.now();
-    }, 1000);
-    return () => clearInterval(interval);
-  });
-
-  let isStale = $derived(
-    stage.status === "running" &&
-      stage.startedAt != null &&
-      now - new Date(stage.startedAt).getTime() > STALE_THRESHOLD_MS,
-  );
-
-  let indicator = $derived(isStale ? STALE_INDICATOR : statusIndicator(stage.status));
+  let indicator = $derived(statusIndicator(stage.status));
 
   let duration = $derived.by(() => {
-    if (stage.status === "running" && stage.startedAt) {
-      const seconds = Math.floor(
-        (now - new Date(stage.startedAt).getTime()) / 1000,
-      );
-      const minutes = Math.floor(seconds / 60);
-      if (minutes > 0) {
-        return `${minutes}m ${seconds % 60}s`;
-      }
-      return `${seconds}s`;
-    }
     if (stage.startedAt && stage.completedAt) {
       const seconds = Math.floor(
         (new Date(stage.completedAt).getTime() -
@@ -70,11 +42,8 @@
   >
     <span class="status-icon">{indicator.icon}</span>
     <span class="agent-name">{formatAgentName(stage.agentName)}</span>
-    {#if stage.status === "running" && !isStale}
+    {#if stage.status === "running"}
       <span class="running-indicator">running...</span>
-    {/if}
-    {#if isStale}
-      <span class="stale-indicator">⚠️ stale</span>
     {/if}
     {#if duration}
       <span class="duration">{duration}</span>
@@ -264,15 +233,5 @@
 
   .status-pending {
     opacity: 0.6;
-  }
-
-  .status-stale {
-    border-color: color-mix(in srgb, var(--color-stale, #f59e0b) 30%, transparent);
-  }
-
-  .stale-indicator {
-    font-size: 0.75rem;
-    color: var(--color-stale, #f59e0b);
-    font-weight: 600;
   }
 </style>
