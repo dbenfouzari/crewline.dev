@@ -59,6 +59,7 @@
       {pipeline}
       comments={drawerComments}
       expandedAgent={$drawerStore.expandedAgent}
+      loading={loadingComments}
       onclose={closeDrawer}
     />
   {/if}

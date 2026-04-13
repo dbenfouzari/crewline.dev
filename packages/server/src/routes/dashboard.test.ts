@@ -397,6 +397,67 @@ describe("Dashboard Routes", () => {
       const body = (await response.json()) as { comments: AgentComment[] };
       expect(body.comments).toHaveLength(0);
     });
+
+    it("returns multiple comments for the same agent in chronological order", async () => {
+      const mockComments: AgentComment[] = [
+        {
+          agentName: "Requirements Gatherer",
+          body: "## 📋 Requirements — Requirements Gatherer\n\nFirst pass.",
+          url: "https://github.com/user/repo/issues/42#issuecomment-1",
+          createdAt: "2025-01-01T00:00:00Z",
+        },
+        {
+          agentName: "Requirements Gatherer",
+          body: "## 📋 Requirements — Requirements Gatherer\n\nRevision.",
+          url: "https://github.com/user/repo/issues/42#issuecomment-4",
+          createdAt: "2025-01-04T00:00:00Z",
+        },
+      ];
+
+      const routesWithComments = createDashboardRoutes({
+        jobHistory: history,
+        conversationHistory,
+        githubCommentClient: createMockCommentClient(mockComments),
+      });
+      const appWithComments = new Hono();
+      appWithComments.route("/", routesWithComments);
+
+      history.record(makeJob({ targetNumber: 42, repository: "user/repo" }));
+
+      const response = await appWithComments.request("/pipeline/42/comments");
+      expect(response.status).toBe(200);
+
+      const body = (await response.json()) as { comments: AgentComment[] };
+      expect(body.comments).toHaveLength(2);
+      expect(body.comments[0]!.agentName).toBe("Requirements Gatherer");
+      expect(body.comments[1]!.agentName).toBe("Requirements Gatherer");
+      expect(body.comments[0]!.createdAt).toBe("2025-01-01T00:00:00Z");
+      expect(body.comments[1]!.createdAt).toBe("2025-01-04T00:00:00Z");
+    });
+
+    it("returns 502 when fetchIssueComments throws", async () => {
+      const throwingClient: GitHubCommentClient = {
+        async fetchIssueComments(): Promise<AgentComment[]> {
+          throw new Error("GitHub API error");
+        },
+      };
+
+      const routesWithComments = createDashboardRoutes({
+        jobHistory: history,
+        conversationHistory,
+        githubCommentClient: throwingClient,
+      });
+      const appWithComments = new Hono();
+      appWithComments.route("/", routesWithComments);
+
+      history.record(makeJob({ targetNumber: 42, repository: "user/repo" }));
+
+      const response = await appWithComments.request("/pipeline/42/comments");
+      expect(response.status).toBe(502);
+
+      const body = (await response.json()) as { error: string };
+      expect(body.error).toBe("Failed to fetch comments from GitHub");
+    });
   });
 
   describe("GET /pipeline/:issueNumber (result/exitCode)", () => {

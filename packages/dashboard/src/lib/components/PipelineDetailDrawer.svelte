@@ -8,10 +8,11 @@
     pipeline: PipelineState;
     comments: AgentComment[];
     expandedAgent: string | null;
+    loading: boolean;
     onclose: () => void;
   }
 
-  let { issueNumber, pipeline, comments, expandedAgent, onclose }: Props =
+  let { issueNumber, pipeline, comments, expandedAgent, loading, onclose }: Props =
     $props();
 
   /** Track which agent sections are expanded. */
@@ -86,6 +87,9 @@
     </header>
 
     <div class="drawer-body">
+      {#if loading}
+        <p class="loading-state">Loading comments...</p>
+      {/if}
       {#if sortedStages.length === 0}
         <p class="empty-state">No stages in this pipeline.</p>
       {:else}
@@ -186,7 +190,8 @@
     gap: 0.5rem;
   }
 
-  .empty-state {
+  .empty-state,
+  .loading-state {
     text-align: center;
     color: var(--color-text-muted);
     padding: 2rem;
