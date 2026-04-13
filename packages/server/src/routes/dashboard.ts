@@ -1,32 +1,35 @@
 /**
  * Dashboard routes — read-only endpoints for the dashboard UI.
- * Provides job listing, pipeline state, and real-time SSE events.
+ * Provides job listing, pipeline state, real-time SSE events,
+ * and conversation replay for completed jobs.
  */
 
 import { Hono } from "hono";
 import { z } from "zod";
-import type { JobHistory } from "@crewline/worker";
+import type { JobHistory, ConversationHistory } from "@crewline/worker";
 import {
   toJobSummary,
   aggregatePipelineState,
 } from "@crewline/shared";
-import type { JobLifecycleEvent } from "@crewline/shared";
+import type { DashboardSSEEvent } from "@crewline/shared";
 
 export interface DashboardDependencies {
   /** Read-only job history instance (must not call record()) */
   jobHistory: JobHistory;
+  /** Read-only conversation history for replay (optional — not available until wired) */
+  conversationHistory?: ConversationHistory;
 }
 
-/** Subscriber callback for SSE events */
-export type SSESubscriber = (event: JobLifecycleEvent) => void;
+/** Subscriber callback for SSE events (widened to DashboardSSEEvent union) */
+export type SSESubscriber = (event: DashboardSSEEvent) => void;
 
 const jobStatusSchema = z.enum(["pending", "running", "completed", "failed"]);
 
 /**
  * Creates the dashboard Hono sub-app with job listing, pipeline state,
- * and SSE endpoints.
+ * SSE endpoints, and conversation replay.
  *
- * @param deps - Dashboard dependencies (job history)
+ * @param deps - Dashboard dependencies (job history, conversation history)
  * @returns An object with the Hono app and methods to manage SSE subscribers
  */
 export function createDashboardRoutes(deps: DashboardDependencies) {
@@ -63,6 +66,16 @@ export function createDashboardRoutes(deps: DashboardDependencies) {
     const jobs = deps.jobHistory.listByIssueNumber(issueNumber);
     const pipelineState = aggregatePipelineState(issueNumber, jobs);
     return c.json(pipelineState);
+  });
+
+  app.get("/jobs/:jobId/conversation", (c) => {
+    if (!deps.conversationHistory) {
+      return c.json({ error: "Conversation history not available" }, 503);
+    }
+
+    const jobId = c.req.param("jobId");
+    const events = deps.conversationHistory.listByJobId(jobId);
+    return c.json({ events });
   });
 
   app.get("/events", (c) => {
@@ -112,12 +125,13 @@ export function createDashboardRoutes(deps: DashboardDependencies) {
 
   return Object.assign(app, {
     /**
-     * Publishes a job lifecycle event to all connected SSE clients.
+     * Publishes a dashboard SSE event to all connected clients.
+     * Accepts both JobLifecycleEvent and ConversationSSEEvent.
      *
-     * @param event - The lifecycle event to broadcast
+     * @param event - The SSE event to broadcast
      */
-    publish(event: JobLifecycleEvent): void {
-      console.log(`[sse] Publishing ${event.type} for ${event.job.agentName}#${String(event.job.targetNumber)} to ${String(subscribers.size)} client(s)`);
+    publish(event: DashboardSSEEvent): void {
+      console.log(`[sse] Publishing ${event.type} to ${String(subscribers.size)} client(s)`);
       for (const subscriber of subscribers) {
         subscriber(event);
       }
