@@ -11,6 +11,7 @@ import type { CrewlineConfig, GitHubEventName, JobSummary, JobStatus } from "@cr
 import { parseLinkedIssueNumbers } from "@crewline/shared";
 import { recoverPendingWork } from "./recovery.js";
 import { createGitHubSearchClient } from "./github-search-client.js";
+import { createGitHubCommentClient } from "./github-comment-client.js";
 import { createDashboardRoutes } from "./routes/dashboard.js";
 import { createConversationSubscriber } from "./conversation-subscriber.js";
 import { QueueEvents } from "bullmq";
@@ -35,7 +36,8 @@ export async function startServer(options: StartServerOptions) {
   const jobHistory = new JobHistory(database);
   const conversationHistory = new ConversationHistory(database);
 
-  const dashboardRoutes = createDashboardRoutes({ jobHistory, conversationHistory });
+  const githubCommentClient = createGitHubCommentClient();
+  const dashboardRoutes = createDashboardRoutes({ jobHistory, conversationHistory, githubCommentClient });
 
   // Subscribe to conversation events from worker via Redis pub/sub
   const conversationSubscriber = createConversationSubscriber(redisConnection);
@@ -207,6 +209,8 @@ export { verifyGitHubSignature } from "./middleware/github-signature.js";
 export { recoverPendingWork } from "./recovery.js";
 export { createGitHubSearchClient } from "./github-search-client.js";
 export type { GitHubSearchClient, IssueSearchResult, PullRequestSearchResult } from "./github-search-client.js";
+export { createGitHubCommentClient } from "./github-comment-client.js";
+export type { GitHubCommentClient } from "./github-comment-client.js";
 export { createDashboardRoutes } from "./routes/dashboard.js";
 export type { DashboardDependencies, SSESubscriber } from "./routes/dashboard.js";
 export { createConversationSubscriber } from "./conversation-subscriber.js";

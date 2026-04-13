@@ -5,6 +5,8 @@ import { JobHistory, ConversationHistory } from "@crewline/worker";
 import type { Job, JobLifecycleEvent, ConversationEvent } from "@crewline/shared";
 import { toJobSummary } from "@crewline/shared";
 import { createDashboardRoutes } from "./dashboard.js";
+import type { GitHubCommentClient } from "../github-comment-client.js";
+import type { AgentComment } from "@crewline/shared";
 
 function makeJob(overrides: Partial<Job> = {}): Job {
   return {
@@ -302,6 +304,144 @@ describe("Dashboard Routes", () => {
 
       const response = await appWithout.request("/jobs/job-1/conversation");
       expect(response.status).toBe(503);
+    });
+  });
+
+  describe("GET /pipeline/:issueNumber/comments", () => {
+    function createMockCommentClient(
+      comments: AgentComment[] = [],
+    ): GitHubCommentClient {
+      return {
+        async fetchIssueComments(): Promise<AgentComment[]> {
+          return comments;
+        },
+      };
+    }
+
+    it("returns agent comments mapped from GitHub", async () => {
+      const mockComments: AgentComment[] = [
+        {
+          agentName: "Requirements Gatherer",
+          body: "## 📋 Requirements — Requirements Gatherer\n\nContent.",
+          url: "https://github.com/user/repo/issues/42#issuecomment-1",
+          createdAt: "2025-01-01T00:00:00Z",
+        },
+      ];
+
+      const routesWithComments = createDashboardRoutes({
+        jobHistory: history,
+        conversationHistory,
+        githubCommentClient: createMockCommentClient(mockComments),
+      });
+      const appWithComments = new Hono();
+      appWithComments.route("/", routesWithComments);
+
+      history.record(makeJob({ targetNumber: 42, repository: "user/repo" }));
+
+      const response = await appWithComments.request("/pipeline/42/comments");
+      expect(response.status).toBe(200);
+
+      const body = (await response.json()) as { comments: AgentComment[] };
+      expect(body.comments).toHaveLength(1);
+      expect(body.comments[0]!.agentName).toBe("Requirements Gatherer");
+    });
+
+    it("returns 404 when no jobs exist for the issue", async () => {
+      const routesWithComments = createDashboardRoutes({
+        jobHistory: history,
+        conversationHistory,
+        githubCommentClient: createMockCommentClient(),
+      });
+      const appWithComments = new Hono();
+      appWithComments.route("/", routesWithComments);
+
+      const response = await appWithComments.request("/pipeline/999/comments");
+      expect(response.status).toBe(404);
+
+      const body = (await response.json()) as { error: string };
+      expect(body.error).toBe("No pipeline found for this issue");
+    });
+
+    it("returns 400 for invalid issue number", async () => {
+      const routesWithComments = createDashboardRoutes({
+        jobHistory: history,
+        conversationHistory,
+        githubCommentClient: createMockCommentClient(),
+      });
+      const appWithComments = new Hono();
+      appWithComments.route("/", routesWithComments);
+
+      const response = await appWithComments.request("/pipeline/abc/comments");
+      expect(response.status).toBe(400);
+    });
+
+    it("returns 503 when comment client is not available", async () => {
+      const response = await app.request("/pipeline/42/comments");
+      expect(response.status).toBe(503);
+    });
+
+    it("returns empty comments array when no comments exist", async () => {
+      const routesWithComments = createDashboardRoutes({
+        jobHistory: history,
+        conversationHistory,
+        githubCommentClient: createMockCommentClient([]),
+      });
+      const appWithComments = new Hono();
+      appWithComments.route("/", routesWithComments);
+
+      history.record(makeJob({ targetNumber: 42, repository: "user/repo" }));
+
+      const response = await appWithComments.request("/pipeline/42/comments");
+      expect(response.status).toBe(200);
+
+      const body = (await response.json()) as { comments: AgentComment[] };
+      expect(body.comments).toHaveLength(0);
+    });
+  });
+
+  describe("GET /pipeline/:issueNumber (result/exitCode)", () => {
+    it("includes result and exitCode in pipeline stage response", async () => {
+      history.record(
+        makeJob({
+          agentName: "dev",
+          targetNumber: 42,
+          status: "completed",
+          result: "PR #42 created successfully",
+          exitCode: 0,
+        }),
+      );
+
+      const response = await app.request("/pipeline/42");
+      expect(response.status).toBe(200);
+
+      const body = (await response.json()) as {
+        stages: { agentName: string; result: string | null; exitCode: number | null }[];
+      };
+      expect(body.stages[0]!.result).toBe("PR #42 created successfully");
+      expect(body.stages[0]!.exitCode).toBe(0);
+    });
+
+    it("includes null result and exitCode for pending stages", async () => {
+      history.record(
+        makeJob({
+          agentName: "dev",
+          targetNumber: 42,
+          status: "pending",
+          startedAt: null,
+          completedAt: null,
+          result: null,
+          exitCode: null,
+        }),
+      );
+
+      const response = await app.request("/pipeline/42");
+      expect(response.status).toBe(200);
+
+      const body = (await response.json()) as {
+        stages: { result: string | null; exitCode: number | null }[];
+      };
+      expect(body.stages[0]!.result).toBeNull();
+      expect(body.stages[0]!.exitCode).toBeNull();
     });
   });
 

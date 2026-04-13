@@ -40,6 +40,10 @@ export interface PipelineStageSnapshot {
   startedAt: string | null;
   /** When the job completed or failed */
   completedAt: string | null;
+  /** The stdout/stderr output from agent execution */
+  result: string | null;
+  /** The CLI process exit code (0 = success, non-zero = failure) */
+  exitCode: number | null;
 }
 
 /**
@@ -106,6 +110,8 @@ export function aggregatePipelineState(
     createdAt: job.createdAt,
     startedAt: job.startedAt,
     completedAt: job.completedAt,
+    result: job.result,
+    exitCode: job.exitCode,
   }));
 
   const mostRecentJob = jobs.reduce<Job | null>((latest, job) => {

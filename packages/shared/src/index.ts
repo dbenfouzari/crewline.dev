@@ -1,3 +1,4 @@
+export type { AgentComment } from "./types/agent-comment.js";
 export type * from "./types/github.js";
 export type * from "./types/agent.js";
 export type * from "./types/job.js";
