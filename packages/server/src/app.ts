@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { GitHubEventName } from "@crewline/shared";
 import { verifyGitHubSignature } from "./middleware/github-signature.js";
+import { checkHealth } from "./health.js";
+import type { HealthCheckDependencies } from "./health.js";
 import type { createDashboardRoutes } from "./routes/dashboard.js";
 
 export interface WebhookEvent {
@@ -14,6 +16,8 @@ export interface AppOptions {
   onEvent: (event: WebhookEvent) => Promise<void>;
   /** Optional dashboard routes sub-app (mounted when provided) */
   dashboardRoutes?: ReturnType<typeof createDashboardRoutes>;
+  /** Optional health check dependencies — when provided, `/health` probes Redis and SQLite. */
+  healthDependencies?: HealthCheckDependencies;
 }
 
 export function createApp(options: AppOptions) {
@@ -21,8 +25,13 @@ export function createApp(options: AppOptions) {
 
   app.use("*", cors());
 
-  app.get("/health", (c) => {
-    return c.json({ status: "ok" });
+  app.get("/health", async (c) => {
+    if (!options.healthDependencies) {
+      return c.json({ status: "ok" });
+    }
+    const response = await checkHealth(options.healthDependencies);
+    const statusCode = response.status === "ok" ? 200 : 503;
+    return c.json(response, statusCode);
   });
 
   app.post("/webhooks/github", async (c) => {

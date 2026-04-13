@@ -17,6 +17,7 @@ import { createConversationSubscriber } from "./conversation-subscriber.js";
 import { QueueEvents } from "bullmq";
 import type { Job as BullJob } from "bullmq";
 import { extractTargetTitle } from "./extract-target-title.js";
+import Redis from "ioredis";
 
 export interface StartServerOptions {
   config: CrewlineConfig;
@@ -94,9 +95,33 @@ export async function startServer(options: StartServerOptions) {
     });
   });
 
+  const startTime = Date.now();
+
   const app = createApp({
     webhookSecret: config.github.webhookSecret,
     dashboardRoutes,
+    healthDependencies: {
+      startTime,
+      probeRedis: async () => {
+        const redis = new Redis({
+          host: redisConnection.host,
+          port: redisConnection.port,
+          maxRetriesPerRequest: 0,
+          retryStrategy: () => null,
+          lazyConnect: true,
+          connectTimeout: 2000,
+        });
+        try {
+          await redis.connect();
+          await redis.ping();
+        } finally {
+          redis.disconnect();
+        }
+      },
+      probeDatabase: () => {
+        database.exec("SELECT 1");
+      },
+    },
     onEvent: async ({ eventName, payload }) => {
       const repo = (payload["repository"] as { full_name?: string })?.full_name;
 
@@ -205,6 +230,8 @@ export { extractTargetTitle } from "./extract-target-title.js";
 export { createApp } from "./app.js";
 export { matchAgents } from "./router.js";
 export type { AppOptions, WebhookEvent } from "./app.js";
+export { checkHealth } from "./health.js";
+export type { HealthCheckDependencies } from "./health.js";
 export { verifyGitHubSignature } from "./middleware/github-signature.js";
 export { recoverPendingWork } from "./recovery.js";
 export { createGitHubSearchClient } from "./github-search-client.js";
