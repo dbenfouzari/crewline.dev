@@ -31,8 +31,7 @@ cd crewline.dev
 # Install dependencies
 bun install
 
-# Copy and edit your configuration
-cp crewline.config.example.ts crewline.config.ts
+# Create your configuration file (see CLAUDE.md for details)
 # Edit crewline.config.ts with your GitHub webhook secret, repos, and agents
 
 # Start the server and worker (in separate terminals)
