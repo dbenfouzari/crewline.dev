@@ -18,7 +18,7 @@
 
 <style>
   .markdown-body {
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     line-height: 1.6;
     color: var(--color-text, #e1e4ed);
     word-break: break-word;
