@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PipelineStageSnapshot, AgentComment } from "@crewline/shared";
   import { statusIndicator, formatAgentName } from "../status.js";
+  import MarkdownRenderer from "./MarkdownRenderer.svelte";
 
   interface Props {
     stage: PipelineStageSnapshot;
@@ -70,7 +71,7 @@
                 </a>
                 <time>{new Date(comment.createdAt).toLocaleString()}</time>
               </div>
-              <pre class="comment-body">{comment.body}</pre>
+              <MarkdownRenderer content={comment.body} />
             </div>
           {/each}
         </div>
@@ -81,7 +82,7 @@
       {#if stage.result}
         <div class="result-section">
           <h4>Job Result / Logs</h4>
-          <pre class="result-output">{stage.result}</pre>
+          <MarkdownRenderer content={stage.result} />
         </div>
       {/if}
     </div>
@@ -211,24 +212,6 @@
     text-decoration: underline;
   }
 
-  .comment-body,
-  .result-output {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 400px;
-    overflow-y: auto;
-    margin: 0;
-  }
-
-  .result-output {
-    background: color-mix(in srgb, var(--color-surface) 50%, transparent);
-    border: 1px solid var(--color-border);
-    border-radius: 0.375rem;
-    padding: 0.75rem;
-  }
 
   .no-comment {
     font-size: 0.8125rem;
