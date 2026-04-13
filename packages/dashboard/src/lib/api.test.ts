@@ -35,6 +35,8 @@ function createMockPipelineState(
         createdAt: "2026-04-10T12:00:00Z",
         startedAt: "2026-04-10T12:01:00Z",
         completedAt: "2026-04-10T12:05:00Z",
+        result: null,
+        exitCode: null,
       },
     ],
     ...overrides,

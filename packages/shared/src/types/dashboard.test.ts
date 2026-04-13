@@ -72,6 +72,37 @@ describe("aggregatePipelineState", () => {
     expect(state.stages[0]!.createdAt).toBe(job.createdAt);
     expect(state.stages[0]!.startedAt).toBe(job.startedAt);
     expect(state.stages[0]!.completedAt).toBe(job.completedAt);
+    expect(state.stages[0]!.result).toBe(job.result);
+    expect(state.stages[0]!.exitCode).toBe(job.exitCode);
+  });
+
+  it("includes result and exitCode in stage snapshots", () => {
+    const job = makeJob({
+      agentName: "dev",
+      targetNumber: 5,
+      result: "PR #42 created",
+      exitCode: 0,
+    });
+    const state = aggregatePipelineState(5, [job]);
+
+    expect(state.stages[0]!.result).toBe("PR #42 created");
+    expect(state.stages[0]!.exitCode).toBe(0);
+  });
+
+  it("includes null result and exitCode for pending jobs", () => {
+    const job = makeJob({
+      agentName: "dev",
+      targetNumber: 5,
+      status: "pending",
+      startedAt: null,
+      completedAt: null,
+      result: null,
+      exitCode: null,
+    });
+    const state = aggregatePipelineState(5, [job]);
+
+    expect(state.stages[0]!.result).toBeNull();
+    expect(state.stages[0]!.exitCode).toBeNull();
   });
 
   it("groups multiple agents into separate stages", () => {
