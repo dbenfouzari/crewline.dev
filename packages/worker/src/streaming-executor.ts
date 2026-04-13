@@ -81,15 +81,21 @@ export function parseLine(line: string): Record<string, unknown> | null {
 
 /**
  * Truncates a payload object if its JSON representation exceeds MAX_PAYLOAD_SIZE.
+ * Preserves the event type for classification but replaces all other content
+ * with truncation metadata to actually reduce storage size.
  *
  * @param payload - The raw event payload
- * @returns The payload, possibly with large string values truncated
+ * @returns The payload, or a truncated summary if oversized
  */
 export function truncatePayload(payload: Record<string, unknown>): Record<string, unknown> {
   const json = JSON.stringify(payload);
   if (json.length <= MAX_PAYLOAD_SIZE) return payload;
 
-  return { ...payload, _truncated: true, _originalSize: json.length };
+  return {
+    type: payload["type"],
+    _truncated: true,
+    _originalSize: json.length,
+  };
 }
 
 /**
