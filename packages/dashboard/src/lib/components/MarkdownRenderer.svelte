@@ -155,6 +155,52 @@
     font-weight: 600;
   }
 
+  /* GitHub-flavored alerts */
+  .markdown-body :global(.markdown-alert) {
+    border-left: 3px solid;
+    border-radius: 0 0.375rem 0.375rem 0;
+    padding: 0.5rem 1rem;
+    margin: 0.75em 0;
+  }
+
+  .markdown-body :global(.markdown-alert-title) {
+    font-weight: 600;
+    margin-bottom: 0.25em;
+  }
+
+  .markdown-body :global(.markdown-alert-note) {
+    border-color: #3b82f6;
+    background: color-mix(in srgb, #3b82f6 10%, transparent);
+  }
+
+  .markdown-body :global(.markdown-alert-tip) {
+    border-color: #22c55e;
+    background: color-mix(in srgb, #22c55e 10%, transparent);
+  }
+
+  .markdown-body :global(.markdown-alert-important) {
+    border-color: #a855f7;
+    background: color-mix(in srgb, #a855f7 10%, transparent);
+  }
+
+  .markdown-body :global(.markdown-alert-warning) {
+    border-color: #eab308;
+    background: color-mix(in srgb, #eab308 10%, transparent);
+  }
+
+  .markdown-body :global(.markdown-alert-caution) {
+    border-color: #ef4444;
+    background: color-mix(in srgb, #ef4444 10%, transparent);
+  }
+
+  .markdown-body :global(.markdown-alert-title) {
+    font-size: 0.8125rem;
+  }
+
+  .markdown-body :global(.markdown-alert p:last-child) {
+    margin-bottom: 0;
+  }
+
   /* highlight.js dark theme overrides */
   .markdown-body :global(.hljs) {
     color: var(--color-text, #e1e4ed);

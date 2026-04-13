@@ -91,6 +91,50 @@ describe("renderMarkdown", () => {
     expect(result).toContain("class=");
   });
 
+  it("renders GitHub alert [!IMPORTANT] as styled div", () => {
+    const result = renderMarkdown("> [!IMPORTANT]\n> This is critical.");
+    expect(result).toContain('class="markdown-alert markdown-alert-important"');
+    expect(result).toContain("📌 Important");
+    expect(result).toContain("This is critical.");
+  });
+
+  it("renders GitHub alert [!NOTE] as styled div", () => {
+    const result = renderMarkdown("> [!NOTE]\n> Some info.");
+    expect(result).toContain('class="markdown-alert markdown-alert-note"');
+    expect(result).toContain("ℹ️ Note");
+    expect(result).toContain("Some info.");
+  });
+
+  it("renders GitHub alert [!WARNING] as styled div", () => {
+    const result = renderMarkdown("> [!WARNING]\n> Be careful.");
+    expect(result).toContain("markdown-alert-warning");
+    expect(result).toContain("⚠️ Warning");
+  });
+
+  it("renders GitHub alert [!TIP] as styled div", () => {
+    const result = renderMarkdown("> [!TIP]\n> Helpful hint.");
+    expect(result).toContain("markdown-alert-tip");
+    expect(result).toContain("💡 Tip");
+  });
+
+  it("renders GitHub alert [!CAUTION] as styled div", () => {
+    const result = renderMarkdown("> [!CAUTION]\n> Dangerous.");
+    expect(result).toContain("markdown-alert-caution");
+    expect(result).toContain("🔴 Caution");
+  });
+
+  it("renders multi-line GitHub alerts", () => {
+    const result = renderMarkdown("> [!IMPORTANT]\n> Line 1\n> Line 2");
+    expect(result).toContain("Line 1");
+    expect(result).toContain("Line 2");
+  });
+
+  it("preserves regular blockquotes (not alerts)", () => {
+    const result = renderMarkdown("> Just a quote");
+    expect(result).toContain("<blockquote>");
+    expect(result).not.toContain("markdown-alert");
+  });
+
   it("renders tables (GFM)", () => {
     const result = renderMarkdown(
       "| A | B |\n|---|---|\n| 1 | 2 |",
