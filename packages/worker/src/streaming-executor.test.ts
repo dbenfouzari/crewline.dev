@@ -144,13 +144,18 @@ describe("truncatePayload", () => {
     expect(result).toEqual(payload);
   });
 
-  it("truncates payload when over 64KB and adds metadata", () => {
+  it("truncates payload when over 64KB, reduces size, and preserves type", () => {
     const largeContent = "x".repeat(70_000);
     const payload = { type: "tool", content: largeContent };
     const result = truncatePayload(payload);
     expect(result["_truncated"]).toBe(true);
     expect(typeof result["_originalSize"]).toBe("number");
     expect(result["_originalSize"] as number).toBeGreaterThan(64 * 1024);
+    expect(result["type"]).toBe("tool");
+    // Must NOT contain the original large content
+    expect(result["content"]).toBeUndefined();
+    // Resulting payload must be smaller than MAX_PAYLOAD_SIZE
+    expect(JSON.stringify(result).length).toBeLessThan(64 * 1024);
   });
 
   it("returns payload unchanged at exactly the size limit", () => {
