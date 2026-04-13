@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PipelineStageSnapshot } from "@crewline/shared";
-  import { statusIndicator, formatAgentName } from "../status.js";
+  import { statusIndicator, formatAgentName, STALE_INDICATOR } from "../status.js";
+  import { STALE_THRESHOLD_MS } from "../constants.js";
   import { openDrawer } from "../stores/drawer.js";
 
   interface Props {
@@ -15,7 +16,13 @@
     openDrawer(issueNumber, stage.agentName);
   }
 
-  let indicator = $derived(statusIndicator(stage.status));
+  let isStale = $derived(
+    stage.status === "running" &&
+      stage.startedAt != null &&
+      now - new Date(stage.startedAt).getTime() > STALE_THRESHOLD_MS,
+  );
+
+  let indicator = $derived(isStale ? STALE_INDICATOR : statusIndicator(stage.status));
 
   /** Reactive clock that only ticks while a stage is running. */
   let now = $state(Date.now());
@@ -115,5 +122,9 @@
 
   .status-pending {
     opacity: 0.6;
+  }
+
+  .status-stale {
+    border-color: color-mix(in srgb, var(--color-stale) 30%, transparent);
   }
 </style>
