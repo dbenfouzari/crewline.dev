@@ -89,11 +89,16 @@ export function createDashboardRoutes(deps: DashboardDependencies) {
     }
 
     const repository = jobs[0]!.repository;
-    const comments = await deps.githubCommentClient.fetchIssueComments(
-      repository,
-      issueNumber,
-    );
-    return c.json({ comments });
+    try {
+      const comments = await deps.githubCommentClient.fetchIssueComments(
+        repository,
+        issueNumber,
+      );
+      return c.json({ comments });
+    } catch (error) {
+      console.error(`[comments] Failed to fetch comments for #${String(issueNumber)}:`, error);
+      return c.json({ error: "Failed to fetch comments from GitHub" }, 502);
+    }
   });
 
   app.get("/jobs/:jobId/conversation", (c) => {

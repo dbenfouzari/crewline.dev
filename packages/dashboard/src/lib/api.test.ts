@@ -176,6 +176,96 @@ describe("fetchPipeline", () => {
   });
 });
 
+describe("fetchPipelineComments", () => {
+  it("calls /api/pipeline/:issueNumber/comments with correct URL", async () => {
+    const mockComments = {
+      comments: [
+        {
+          agentName: "Requirements Gatherer",
+          body: "## 📋 Requirements — Requirements Gatherer\n\nContent.",
+          url: "https://github.com/user/repo/issues/42#issuecomment-1",
+          createdAt: "2025-01-01T00:00:00Z",
+        },
+      ],
+    };
+    const mockFetch = mock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(mockComments), { status: 200 }),
+      ),
+    );
+    globalThis.fetch = mockFetch;
+
+    const { fetchPipelineComments } = await import("./api.js");
+    await fetchPipelineComments(42);
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/pipeline/42/comments");
+  });
+
+  it("returns parsed agent comments", async () => {
+    const mockComments = {
+      comments: [
+        {
+          agentName: "Architect",
+          body: "## 🏗️ Architecture — Architect\n\nPlan.",
+          url: "https://github.com/user/repo/issues/42#issuecomment-2",
+          createdAt: "2025-01-02T00:00:00Z",
+        },
+      ],
+    };
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(mockComments), { status: 200 }),
+      ),
+    );
+
+    const { fetchPipelineComments } = await import("./api.js");
+    const result = await fetchPipelineComments(42);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.agentName).toBe("Architect");
+    expect(result[0]?.body).toContain("Architecture");
+  });
+
+  it("throws on non-ok response", async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(new Response("Not Found", { status: 404 })),
+    );
+
+    const { fetchPipelineComments } = await import("./api.js");
+
+    expect(fetchPipelineComments(999)).rejects.toThrow(
+      "Failed to fetch pipeline comments: 404",
+    );
+  });
+
+  it("throws on invalid response shape", async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ wrong: "shape" }), { status: 200 }),
+      ),
+    );
+
+    const { fetchPipelineComments } = await import("./api.js");
+
+    expect(fetchPipelineComments(42)).rejects.toThrow();
+  });
+
+  it("throws when comments array has invalid entries", async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ comments: [{ invalid: true }] }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const { fetchPipelineComments } = await import("./api.js");
+
+    expect(fetchPipelineComments(42)).rejects.toThrow();
+  });
+});
+
 describe("createEventSource", () => {
   it("creates an EventSource connected to /api/events", () => {
     const { createEventSource } = require("./api.js");

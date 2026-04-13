@@ -43,6 +43,11 @@ describe("parseAgentNameFromHeader", () => {
     expect(parseAgentNameFromHeader(body)).toBe("Requirements Gatherer");
   });
 
+  it("does not match en dash, only em dash", () => {
+    const body = "## 📋 Requirements Analysis – Requirements Gatherer\n\nContent.";
+    expect(parseAgentNameFromHeader(body)).toBeNull();
+  });
+
   it("handles header without emoji", () => {
     const body = "## Some Title — Test Master\n\nContent.";
     expect(parseAgentNameFromHeader(body)).toBe("Test Master");
