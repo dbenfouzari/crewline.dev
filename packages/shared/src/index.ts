@@ -14,6 +14,12 @@ export type {
 } from "./types/dashboard.js";
 export { toJobSummary, aggregatePipelineState } from "./types/dashboard.js";
 export { parseLinkedIssueNumbers } from "./parse-linked-issues.js";
+export type {
+  ConversationEventType,
+  ConversationEvent,
+  ConversationSSEEvent,
+  DashboardSSEEvent,
+} from "./types/conversation.js";
 export {
   GitHubUserSchema,
   GitHubRepositorySchema,
